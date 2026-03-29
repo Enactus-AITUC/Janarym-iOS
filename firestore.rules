@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
+    function isMentor() {
+      return isSignedIn() && getUserRole() == 'mentor';
+    }
+
+    function isDeveloper() {
+      return isSignedIn() && getUserRole() == 'developer';
+    }
+
+    function isParent() {
+      return isSignedIn() && getUserRole() == 'parent';
+    }
+
+    function isPrivileged() {
+      return isAdmin() || isMentor() || isDeveloper() || isParent();
+    }
+
+    // ── users collection ─────────────────────────────────────────────────
+    match /users/{uid} {
+      // Өзін, немесе admin/developer барлық пайдаланушыларды оқи алады
+      allow read: if isSignedIn() && (isOwner(uid) || isAdmin() || isDeveloper());
+
+      // Жаңа профиль жасауға тек өзі рұқсатты
+      allow create: if isSignedIn() && (isOwner(uid) || isAdmin() || isDeveloper());
+
+      // Жаңарту: өзі (role өзгерте алмайды) немесе admin/developer
+      allow update: if isSignedIn() && (
+        (isOwner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
+        isAdmin() ||
+        isDeveloper()
+      );
+
+      // Admin немесе developer жоя алады
+      allow delete: if isAdmin() || isDeveloper();
+    }
+
+    // ── applications collection ──────────────────────────────────────────
+    match /applications/{appId} {
+      // Өзінің өтінімін оқу / admin / mentor / developer
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        isMentor() ||
+        isDeveloper()
+      );
+
+      // Кез-келген авторизацияланған пайдаланушы жаңа өтінім жібере алады
+      allow create: if isSignedIn() && (
+        (request.resource.data.userId == request.auth.uid &&
+         request.resource.data.status == 'pending') ||
+        isAdmin() ||
+        isDeveloper()
+      );
+
+      // Status-ты тек admin/mentor/developer өзгерте алады
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        isMentor() ||
+        isDeveloper() ||
+        (resource.data.userId == request.auth.uid &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']))
+      );
+
+      // Admin немесе developer жоя алады
+      allow delete: if isAdmin() || isDeveloper();
+    }
+
+    // ── presence collection ──────────────────────────────────────────────
+    match /presence/{uid} {
+      // Тек өзі жаза алады
+      allow write: if isSignedIn() && isOwner(uid);
+
+      // Admin / mentor / parent / developer оқи алады
+      allow read: if isSignedIn() && (
+        isOwner(uid) ||
+        isAdmin() ||
+        isMentor() ||
+        isParent() ||
+        isDeveloper()
+      );
+    }
+  }
+}
