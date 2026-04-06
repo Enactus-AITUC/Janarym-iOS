@@ -41,54 +41,12 @@ enum SubscriptionTier: String, Comparable {
         }
     }
 
-    /// OpenAI Vision detail параметрі
-    var imageDetail: String {
-        switch self {
-        case .free: return "low"
-        case .premium: return "low"   // 85 tokens — экономды
-        case .vip: return "auto"      // GPT өзі анықтайды
-        }
-    }
-
-    /// GPT жауап ұзындығы (maxTokens)
-    var maxResponseTokens: Int {
-        switch self {
-        case .free: return 150
-        case .premium: return 250
-        case .vip: return 500
-        }
-    }
-
-    /// Сақталатын контекст хабарлар саны
-    var maxConversationMessages: Int {
-        switch self {
-        case .free: return 4
-        case .premium: return 6
-        case .vip: return 10
-        }
-    }
-
-    /// SceneWatcher — тек VIP
-    var canUseSceneWatcher: Bool {
-        self == .vip
-    }
-
-    /// OpenAI TTS (nova) — тек VIP
-    var canUseOpenAITTS: Bool {
-        self == .vip
-    }
-
-    /// Жад жүйесі (MemoryStore) — тек VIP
-    var canUseMemory: Bool {
-        self == .vip
-    }
-
     /// Қол жетімді режимдер
     var allowedModes: [String] {
         switch self {
         case .free: return ["general"]
         case .premium: return ["general", "reading", "shopping"]
-        case .vip: return ["general", "reading", "shopping", "navigation", "antiscam", "agent"]
+        case .vip: return ["general", "reading", "shopping", "navigation", "antiscam"]
         }
     }
 

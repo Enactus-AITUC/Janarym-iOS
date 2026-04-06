@@ -18,14 +18,16 @@
 	<string>1</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Камера Janarym ассистентіне керек</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Микрофон Janarym ассистентіне керек</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Навигация режимінде орналасуыңызды анықтап, жақын жерлер мен маршрут көрсету үшін керек</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон Janarym ассистентіне керек</string>
 	<key>NSMotionUsageDescription</key>
 	<string>VR режимде гироскоп Janarym-ға қажет</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Сөйлеуді тану wake word анықтау үшін керек</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
@@ -35,10 +37,6 @@
 	</dict>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -52,5 +50,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 </dict>
 </plist>

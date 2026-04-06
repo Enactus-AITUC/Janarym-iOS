@@ -20,25 +20,7 @@ struct MentorDashboardView: View {
                 if isLoading {
                     ProgressView().tint(.green)
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            if applications.isEmpty {
-                                EmptyStateView(icon: "person.2.fill", text: kk ? "Өтініштер жоқ" : "Заявок нет")
-                            } else {
-                                ForEach(applications) { app in
-                                    MentorApplicationCard(app: app) { newStatus in
-                                        Task {
-                                            guard let id = app.id else { return }
-                                            try? await FirestoreService.shared.updateApplicationStatus(
-                                                appId: id, status: newStatus)
-                                            await loadData()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(16)
-                    }
+                    applicationsTab
                 }
             }
             .navigationTitle(kk ? "Ментор панелі" : "Панель ментора")
@@ -49,11 +31,8 @@ struct MentorDashboardView: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await loadData() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(.white.opacity(0.7))
+                    Button { Task { await loadData() } } label: {
+                        Image(systemName: "arrow.clockwise").foregroundStyle(.white.opacity(0.7))
                     }
                 }
             }
@@ -62,10 +41,33 @@ struct MentorDashboardView: View {
         .task { await loadData() }
     }
 
+    // MARK: - Tabs
+
+    private var applicationsTab: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                if applications.isEmpty {
+                    EmptyStateView(icon: "person.2.fill", text: kk ? "Өтініштер жоқ" : "Заявок нет")
+                } else {
+                    ForEach(applications) { app in
+                        MentorApplicationCard(app: app) { newStatus in
+                            Task {
+                                guard let id = app.id else { return }
+                                try? await FirestoreService.shared.updateApplicationStatus(
+                                    appId: id, status: newStatus)
+                                await loadData()
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+    }
+
     private func loadData() async {
         isLoading = true
         defer { isLoading = false }
-        // Ментор барлық pending өтініштерді көреді
         applications = (try? await FirestoreService.shared.fetchApplications()) ?? []
     }
 }

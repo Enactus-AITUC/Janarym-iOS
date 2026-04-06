@@ -1,71 +1,112 @@
-# Janarym — Дауыстық AI Ассистент
+# Janarym — AI Voice Assistant
 
-Қазақша, орысша және ағылшынша жұмыс істейтін дауыстық AI-ассистент.
+**Enactus AITUC** жобасы | iOS Swift қосымшасы
+
+Қазақша, орысша және ағылшынша жұмыс істейтін дауыстық AI-ассистент. Google Gemini Live API негізінде жасалған.
+
+---
+
+## Мүмкіндіктер
+
+- **Дауыстық ояту** — «Жанарым» сөзімен іске қосу
+- **Көп тілді** — қазақша / орысша / ағылшынша
+- **Камера интеграциясы** — қоршаған ортаны талдау
+- **Firebase Auth** — пайдаланушы аутентификациясы
+- **Mentor/Admin Dashboard** — басқару панелі
+- **Subscription** — жазылым жүйесі (StoreKit)
+- **SOS менеджері** — авариялық хабарлама жүйесі
+
+---
 
 ## Жылдам бастау
 
-### 1. Secrets.plist құру
-
-`Janarym/Resources/Secrets.example.plist` файлын `Janarym/Resources/Secrets.plist` деп көшіріп, кілттерді толтырыңыз:
+### 1. Secrets.plist жасау
 
 ```bash
 cp Janarym/Resources/Secrets.example.plist Janarym/Resources/Secrets.plist
 ```
 
-Қажетті кілттер:
-- `OPENAI_API_KEY` — OpenAI API кілті (міндетті)
-- `YANDEX_MAPKIT_API_KEY` — Yandex MapKit кілті (қазір қолданылмайды, болашақ үшін)
+`Secrets.plist` ішіне өз кілттеріңізді қосыңыз:
 
-### 2. Xcode-да ашу
+| Кілт | Сипаттама |
+|------|-----------|
+| `GEMINI_API_KEY` | Google Gemini API кілті (міндетті) |
+| `YANDEX_MAPKIT_API_KEY` | Yandex MapKit (болашақ үшін) |
 
-1. Xcode → File → New → Project → iOS App
-2. Product Name: `Janarym`
-3. Bundle Identifier: `com.example.Janarym`
-4. Interface: SwiftUI, Language: Swift
-5. Xcode жасаған бастапқы файлдарды (`ContentView.swift`, `JanarymApp.swift`) жойыңыз
-6. Осы репозиторийдегі `Janarym/` папкасын Xcode проектіне drag & drop арқылы қосыңыз
-7. Info.plist мәндерін project settings → Info → Custom iOS Target Properties-ке қосыңыз
-8. `Secrets.plist` файлын проектке қосыңыз (Copy items if needed)
+### 2. GoogleService-Info.plist қосу
 
-### 3. Project Settings
+Firebase консолінен жүктеп алып, `Janarym/App/` папкасына қойыңыз:
+
+```
+Janarym/App/GoogleService-Info.plist
+```
+
+> **Ескерту:** Бұл файл `.gitignore`-да тіркелген — репозиторийге түспейді.
+
+### 3. Xcode-да ашу
+
+```bash
+open Janarym.xcodeproj
+```
 
 - **iOS Deployment Target:** 16.0
-- **Supported Orientations:** Portrait Only
-- **Info.plist:** Camera, Microphone, Speech Recognition usage descriptions қосылған
+- **Bundle Identifier:** `com.example.Janarym-AI`
+- **Interface:** SwiftUI, Language: Swift
 
-### 4. Құрылғыда іске қосу
+### 4. Нағыз құрылғыда іске қосу
 
-Нағыз iPhone-да іске қосыңыз (камера мен микрофон симуляторда толық жұмыс істемейді).
+Камера мен микрофон симуляторда жұмыс істемейді — iPhone-да тестілеңіз.
+
+---
 
 ## Архитектура
 
 ```
 Janarym/
-├── App/                          # App entry point, root view, lifecycle
-├── Core/                         # Config, enums, utilities
+├── App/                    # Entry point, lifecycle, root view
+├── Core/                   # AppConfig, enums, utilities
 ├── Features/
-│   ├── Assistant/                # Coordinator, wake word, recorder, conversation
-│   ├── Camera/                   # Camera service and preview
-│   ├── Modes/                    # Modes bottom sheet
-│   └── Permissions/              # Permission manager and UI
+│   ├── Assistant/          # AI coordinator, voice input
+│   ├── Auth/               # Login, registration, approval
+│   ├── Camera/             # Camera service and preview
+│   ├── Dashboard/          # Admin and Mentor dashboards
+│   ├── Modes/              # Mode selection sheet
+│   ├── Onboarding/         # User onboarding flow
+│   ├── Permissions/        # iOS permission management
+│   └── Subscription/       # Paywall and StoreKit
 ├── Services/
-│   ├── OpenAI/                   # Whisper + GPT REST clients
-│   └── Speech/                   # TTS service
-└── Resources/                    # Info.plist, Secrets
+│   ├── Firebase/           # Auth, Firestore, Storage
+│   ├── Gemini/             # Gemini Live API client
+│   ├── Memory/             # Conversation memory
+│   ├── Presence/           # User presence and SOS
+│   ├── Speech/             # TTS (AVSpeechSynthesizer)
+│   └── Subscription/       # StoreKit manager
+└── Resources/              # Info.plist, Secrets.example.plist
 ```
+
+---
 
 ## Жұмыс принципі
 
-1. Қосымша ашылғанда камера фон ретінде көрсетіледі
-2. Wake word listener **«Жанарым»** сөзін тыңдайды
-3. Wake word анықталғанда — пайдаланушы командасы жазылады
-4. Аудио OpenAI Whisper API-ға жіберіледі (STT)
-5. Мәтін GPT-4o-mini-ге жіберіледі
-6. Жауап AVSpeechSynthesizer арқылы айтылады
-7. TTS аяқталғанда — қайтадан wake word тыңдайды
+1. Қосымша ашылғанда камера фонда жұмыс істейді
+2. **«Жанарым»** wake word тыңдалады
+3. Wake word анықталғанда дауыс жазылады
+4. Аудио Gemini Live API-ға жіберіледі
+5. AI жауабы AVSpeechSynthesizer арқылы айтылады
+6. Жауаптан кейін — қайтадан wake word режиміне өтеді
+
+---
 
 ## iOS шектеулері
 
-- Wake word тек қосымша foreground-да болғанда жұмыс істейді (iOS шектеуі)
-- `kk-KZ` locale SFSpeechRecognizer-де кейбір құрылғыларда қолжетімсіз болуы мүмкін, бұл жағдайда `ru-RU` fallback қолданылады
-- Симуляторда камера мен микрофон толық жұмыс істемейді — нағыз құрылғыда тестілеңіз
+- Wake word тек foreground режимінде жұмыс істейді (iOS шектеуі)
+- `kk-KZ` locale кейбір құрылғыларда жоқ болуы мүмкін — `ru-RU` fallback қолданылады
+- Нағыз iPhone қажет (камера + микрофон)
+
+---
+
+## Жоба туралы
+
+Бұл жоба **Enactus AITUC** студенттік ұйымының бастамасы. Мақсаты — қазақ тіліндегі AI ассистент технологиясын дамыту.
+
+**Ұйым:** [Enactus AITUC](https://github.com/Enactus-AITUC)

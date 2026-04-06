@@ -40,6 +40,9 @@ Package.resolved
 # CocoaPods (if ever used)
 Pods/
 
+# Claude Code internal files
+.claude/
+
 # Misc
 *.swp
 *~

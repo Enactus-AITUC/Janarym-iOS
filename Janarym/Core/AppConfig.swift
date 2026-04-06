@@ -4,19 +4,19 @@ enum AppConfig {
 
     // MARK: - API Keys
 
-    static var openAIAPIKey: String {
-        secret(for: "OPENAI_API_KEY")
+    static var geminiAPIKey: String {
+        secret(for: "GEMINI_API_KEY")
     }
 
     static var yandexMapKitAPIKey: String {
         secret(for: "YANDEX_MAPKIT_API_KEY")
     }
 
-    // MARK: - OpenAI
+    // MARK: - Gemini
 
-    static let openAIBaseURL = "https://api.openai.com"
-    static let whisperModel = "whisper-1"
-    static let chatModel = "gpt-4o-mini"
+    static let geminiBaseURL = "https://generativelanguage.googleapis.com"
+    static let geminiChatModel = "gemini-2.5-flash"
+    static let geminiLiveModel = "models/gemini-2.5-flash-native-audio-preview"
 
     static let systemPrompt = """
     Сен — Janarym, дауыстық AI-ассистентсің. \
@@ -28,10 +28,7 @@ enum AppConfig {
     егер пайдаланушы өзі толық жауап сұрамаса.
     """
 
-    static let maxConversationMessages = 6  // 10→6: token үнемдеу
     static let maxRecordingDuration: TimeInterval = 20
-    static let silenceThreshold: Float = -40.0
-    static let silenceDuration: TimeInterval = 1.2
 
     // MARK: - Subscription
 
