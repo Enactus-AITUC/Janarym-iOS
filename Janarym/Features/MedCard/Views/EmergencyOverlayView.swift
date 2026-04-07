@@ -33,27 +33,27 @@ struct EmergencyOverlayView: View {
 
             VStack(spacing: 0) {
 
-                // ── Header ───────────────────────────────────────────
-                VStack(spacing: 8) {
-                    Image(systemName: "cross.fill")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
-                        .accessibilityHidden(true)
-
-                    Text(kk ? "ЖЕДЕЛ МЕДИЦИНАЛЫҚ АҚПАРАТ" : "ЭКСТРЕННЫЕ МЕДДАННЫЕ")
-                        .font(.system(size: 17, weight: .black))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .kerning(0.6)
-                }
-                .padding(.top, 60)
-                .padding(.bottom, 24)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(kk ? "Жедел медициналық ақпарат" : "Экстренные медицинские данные")
-
-                // ── Data rows ────────────────────────────────────────
+                // ── Scrollable content (header + data rows) ──────────
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
+
+                        // Header
+                        VStack(spacing: 6) {
+                            Image(systemName: "cross.fill")
+                                .font(.system(size: 26, weight: .bold))
+                                .foregroundStyle(.white)
+                                .accessibilityHidden(true)
+
+                            Text(kk ? "ЖЕДЕЛ МЕДИЦИНАЛЫҚ АҚПАРАТ" : "ЭКСТРЕННЫЕ МЕДДАННЫЕ")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .kerning(0.6)
+                        }
+                        .padding(.top, 52)
+                        .padding(.bottom, 6)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(kk ? "Жедел медициналық ақпарат" : "Экстренные медицинские данные")
 
                         if !card.fullName.isEmpty {
                             ERow(icon: "person.fill",
@@ -111,12 +111,12 @@ struct EmergencyOverlayView: View {
                             EMedsBlock(meds: card.medications, kk: kk)
                         }
 
-                        Spacer(minLength: 24)
+                        Spacer(minLength: 16)
                     }
                     .padding(.horizontal, 20)
                 }
 
-                // ── Dismiss ──────────────────────────────────────────
+                // ── Dismiss — pinned to bottom ────────────────────────
                 Button(action: onDismiss) {
                     Text(kk ? "Жабу" : "Закрыть")
                         .font(.system(size: 17, weight: .bold))
@@ -128,6 +128,7 @@ struct EmergencyOverlayView: View {
                         .padding(.horizontal, 24)
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 12)
                 .padding(.bottom, 40)
                 .accessibilityLabel(kk ? "Жабу" : "Закрыть")
                 .accessibilityHint(kk ? "Жедел ақпарат экранын жабады" : "Закрывает экстренный экран")
@@ -149,28 +150,29 @@ private struct ERow: View {
     var valueColor: Color = .white
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white.opacity(0.65))
                     .accessibilityHidden(true)
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.60))
                     .textCase(.uppercase)
                     .kerning(0.8)
             }
             Text(value)
-                .font(.system(size: large ? 26 : 19, weight: .bold, design: .rounded))
+                .font(.system(size: large ? 22 : 16, weight: .bold, design: .rounded))
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color.white.opacity(0.11))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -183,27 +185,27 @@ private struct EMedsBlock: View {
     let kk: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: "pills.fill")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white.opacity(0.65))
                     .accessibilityHidden(true)
                 Text(kk ? "ДӘРІЛЕР" : "ПРЕПАРАТЫ")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.60))
                     .kerning(0.8)
             }
             ForEach(meds) { med in
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text("•")
                         .foregroundStyle(.white.opacity(0.5))
                     Text(med.name)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.white)
                     if !med.dosage.isEmpty {
                         Text(med.dosage)
-                            .font(.system(size: 16))
+                            .font(.system(size: 14))
                             .foregroundStyle(.white.opacity(0.70))
                     }
                 }
@@ -212,8 +214,9 @@ private struct EMedsBlock: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color.white.opacity(0.11))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
