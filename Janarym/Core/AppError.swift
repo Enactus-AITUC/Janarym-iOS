@@ -29,7 +29,7 @@ enum AppError: LocalizedError {
         case .ttsFailed(let detail):
             return AppText.pick("TTS қатесі: \(detail)", "Ошибка TTS: \(detail)", language: language)
         case .missingAPIKey:
-            return AppText.pick("OpenAI proxy URL табылмады", "Не найден OpenAI proxy URL", language: language)
+            return AppText.pick("OPENAI_API_KEY немесе OPENAI_PROXY_URL Secrets.plist-те табылмады", "Не найден OPENAI_API_KEY или OPENAI_PROXY_URL в Secrets.plist", language: language)
         case .networkError(let detail):
             return AppText.pick("Желі қатесі: \(detail)", "Сетевая ошибка: \(detail)", language: language)
         }
