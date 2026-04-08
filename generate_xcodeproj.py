@@ -59,10 +59,7 @@ sources = [
     ("SpeechRecorder.swift",              "Janarym/Features/Assistant/SpeechRecorder.swift",    ASST_GROUP_UID),
     ("WakeWordListener.swift",            "Janarym/Features/Assistant/WakeWordListener.swift",  ASST_GROUP_UID),
     ("ModesSheetView.swift",              "Janarym/Features/Modes/ModesSheetView.swift",         MODES_GROUP_UID),
-    ("ChatCompletionService.swift",       "Janarym/Services/OpenAI/ChatCompletionService.swift", OPENAI_GROUP_UID),
-    ("MultipartFormDataBuilder.swift",    "Janarym/Services/OpenAI/MultipartFormDataBuilder.swift", OPENAI_GROUP_UID),
-    ("OpenAIClient.swift",                "Janarym/Services/OpenAI/OpenAIClient.swift",          OPENAI_GROUP_UID),
-    ("WhisperTranscriptionService.swift", "Janarym/Services/OpenAI/WhisperTranscriptionService.swift", OPENAI_GROUP_UID),
+    ("OpenAIRealtimeService.swift",       "Janarym/Services/OpenAI/OpenAIRealtimeService.swift",  OPENAI_GROUP_UID),
     ("SpeechSynthesizerService.swift",    "Janarym/Services/Speech/SpeechSynthesizerService.swift", SPEECH_GROUP_UID),
 ]
 

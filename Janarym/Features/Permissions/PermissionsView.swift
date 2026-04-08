@@ -3,13 +3,13 @@ import SwiftUI
 struct PermissionsView: View {
 
     @ObservedObject var manager: PermissionManager
+    @ObservedObject private var onboarding = OnboardingStore.shared
     var onContinue: () -> Void = {}
 
     @State private var showShield = false
     @State private var showTitle = false
     @State private var showRow1 = false
     @State private var showRow2 = false
-    @State private var showRow3 = false
     @State private var showButton = false
     @State private var ringScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.4
@@ -21,6 +21,7 @@ struct PermissionsView: View {
     }
 
     private let greenAccent = Color(red: 0.12, green: 0.79, blue: 0.32)
+    private var language: UserProfile.Language { onboarding.currentLanguage }
 
     var body: some View {
         ZStack {
@@ -84,7 +85,7 @@ struct PermissionsView: View {
                 Spacer().frame(height: 28)
 
                 // Title
-                Text("Janarym жұмыс істеу үшін\nрұқсаттар қажет")
+                Text(AppText.pick("Janarym жұмыс істеу үшін\nрұқсаттар қажет", "Для работы Janarym\nнужны разрешения", language: language))
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
@@ -101,33 +102,24 @@ struct PermissionsView: View {
                 VStack(spacing: 14) {
                     AnimatedPermissionRow(
                         icon: "camera.fill",
-                        title: "Камера",
-                        subtitle: "Айналаны көру үшін",
+                        title: AppText.pick("Камера", "Камера", language: language),
+                        subtitle: AppText.pick("Айналаны көру үшін", "Чтобы видеть вокруг", language: language),
                         granted: manager.cameraGranted,
                         show: showRow1
                     )
 
                     AnimatedPermissionRow(
                         icon: "mic.fill",
-                        title: "Микрофон",
-                        subtitle: "Дауысты тыңдау үшін",
+                        title: AppText.pick("Микрофон", "Микрофон", language: language),
+                        subtitle: AppText.pick("Дауысты тыңдау үшін", "Чтобы слушать голос", language: language),
                         granted: manager.microphoneGranted,
                         show: showRow2
-                    )
-
-                    AnimatedPermissionRow(
-                        icon: "waveform",
-                        title: "Сөйлеуді тану",
-                        subtitle: "Wake word анықтау үшін",
-                        granted: manager.speechGranted,
-                        show: showRow3
                     )
                 }
                 .padding(.horizontal, 28)
                 .onAppear {
                     withAnimation(.easeOut(duration: 0.5).delay(0.3)) { showRow1 = true }
                     withAnimation(.easeOut(duration: 0.5).delay(0.45)) { showRow2 = true }
-                    withAnimation(.easeOut(duration: 0.5).delay(0.6)) { showRow3 = true }
                 }
 
                 Spacer().frame(height: 36)
@@ -142,7 +134,7 @@ struct PermissionsView: View {
                         manager.checkAll()
                         onContinue()
                     } label: {
-                        Text("Жалғастыру")
+                        Text(AppText.pick("Жалғастыру", "Продолжить", language: language))
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
@@ -172,7 +164,7 @@ struct PermissionsView: View {
                             }
                             manager.requestAll()
                         } label: {
-                            Text("Рұқсат беру")
+                            Text(AppText.pick("Рұқсат беру", "Разрешить доступ", language: language))
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
@@ -192,7 +184,7 @@ struct PermissionsView: View {
                         Button {
                             manager.openSettings()
                         } label: {
-                            Text("Баптауларды ашу")
+                            Text(AppText.pick("Баптауларды ашу", "Открыть настройки", language: language))
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.white.opacity(0.45))
                         }

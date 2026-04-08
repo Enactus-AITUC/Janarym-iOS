@@ -6,6 +6,7 @@ struct ApplicationView: View {
 
     @EnvironmentObject private var authService: AuthService
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     @State private var name       = ""
     @State private var phone      = ""
@@ -16,6 +17,9 @@ struct ApplicationView: View {
     @State private var isLoading  = false
     @State private var errorMsg: String?
     @State private var isSuccess  = false
+
+    private var language: UserProfile.Language { onboarding.currentLanguage }
+    private var kk: Bool { language == .kazakh }
 
     var body: some View {
         NavigationStack {
@@ -32,10 +36,10 @@ struct ApplicationView: View {
                                 Image(systemName: "person.badge.plus.fill")
                                     .font(.system(size: 36))
                                     .foregroundStyle(Color.green)
-                                Text("Өтініш беру")
+                                Text(AppText.pick("Өтініш беру", "Подать заявку", language: language))
                                     .font(.system(size: 24, weight: .bold))
                                     .foregroundStyle(.white)
-                                Text("Толтырыңыз — ментор тексеріп аккаунт береді")
+                                Text(AppText.pick("Толтырыңыз — ментор тексеріп аккаунт береді", "Заполните форму, и ментор проверит заявку", language: language))
                                     .font(.system(size: 13))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .multilineTextAlignment(.center)
@@ -48,14 +52,14 @@ struct ApplicationView: View {
                                     // Role selector
                                 HStack(spacing: 0) {
                                     RoleToggleBtn(
-                                        title: "👤 Мүше",
-                                        subtitle: "Мен нашар көремін",
+                                        title: AppText.pick("👤 Мүше", "👤 Участник", language: language),
+                                        subtitle: AppText.pick("Мен нашар көремін", "Я плохо вижу", language: language),
                                         selected: !isParent
                                     ) { isParent = false }
 
                                     RoleToggleBtn(
-                                        title: "👨‍👩‍👧 Ата-ана",
-                                        subtitle: "Баламды бақылаймын",
+                                        title: AppText.pick("👨‍👩‍👧 Ата-ана", "👨‍👩‍👧 Родитель", language: language),
+                                        subtitle: AppText.pick("Баламды бақылаймын", "Контролирую ребёнка", language: language),
                                         selected: isParent
                                     ) { isParent = true }
                                 }
@@ -68,18 +72,18 @@ struct ApplicationView: View {
                                         }
                                 }
 
-                                SectionLabel("Жеке деректер")
+                                SectionLabel(AppText.pick("Жеке деректер", "Личные данные", language: language))
 
                                 JAuthField(icon: "person.fill",
-                                           placeholder: "Аты-жөні",
+                                           placeholder: AppText.pick("Аты-жөні", "Имя и фамилия", language: language),
                                            text: $name)
 
                                 JAuthField(icon: "phone.fill",
-                                           placeholder: "Телефон нөмірі",
+                                           placeholder: AppText.pick("Телефон нөмірі", "Номер телефона", language: language),
                                            text: $phone,
                                            keyboardType: .phonePad)
 
-                                SectionLabel("Кіру деректері")
+                                SectionLabel(AppText.pick("Кіру деректері", "Данные для входа", language: language))
 
                                 JAuthField(icon: "envelope.fill",
                                            placeholder: "Email",
@@ -87,18 +91,22 @@ struct ApplicationView: View {
                                            keyboardType: .emailAddress)
 
                                 JAuthField(icon: "lock.fill",
-                                           placeholder: "Құпия сөз (6+ символ)",
+                                           placeholder: AppText.pick("Құпия сөз (6+ символ)", "Пароль (6+ символов)", language: language),
                                            text: $password,
                                            isSecure: true)
 
-                                SectionLabel(isParent ? "Баланыз туралы" : "Неліктен Жанарым керек?")
+                                SectionLabel(
+                                    isParent
+                                    ? AppText.pick("Балаңыз туралы", "О ребёнке", language: language)
+                                    : AppText.pick("Неліктен Жанарым керек?", "Зачем нужен Жанарым?", language: language)
+                                )
 
                                 // Purpose textarea
                                 ZStack(alignment: .topLeading) {
                                     if purpose.isEmpty {
                                         Text(isParent
-                                             ? "Мысалы: Менің балам 8 жаста, нашар көреді, оның қауіпсіздігін бақылағым келеді..."
-                                             : "Мысалы: Мен мүлде көрмеймін, Жанарым маған күнделікті өмірде көмектеседі...")
+                                             ? AppText.pick("Мысалы: Балам нашар көреді, оның қауіпсіздігін бақылағым келеді...", "Например: мой ребёнок плохо видит, и я хочу следить за его безопасностью...", language: language)
+                                             : AppText.pick("Мысалы: Мен нашар көремін, Жанарым маған күнделікті өмірде көмектеседі...", "Например: я плохо вижу, и Жанарым помогает мне в повседневной жизни...", language: language))
                                             .font(.system(size: 14))
                                             .foregroundStyle(.white.opacity(0.3))
                                             .padding(.horizontal, 16)
@@ -141,7 +149,7 @@ struct ApplicationView: View {
                                         } else {
                                             HStack(spacing: 8) {
                                                 Image(systemName: "paperplane.fill")
-                                                Text("Өтінішті жіберу")
+                                                Text(AppText.pick("Өтінішті жіберу", "Отправить заявку", language: language))
                                                     .fontWeight(.bold)
                                             }
                                             .foregroundStyle(.black)
@@ -175,7 +183,7 @@ struct ApplicationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Жабу") { dismiss() }
+                    Button(AppText.pick("Жабу", "Закрыть", language: language)) { dismiss() }
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
@@ -293,6 +301,7 @@ private struct SectionLabel: View {
 
 private struct SuccessView: View {
     let onDone: () -> Void
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     var body: some View {
         VStack(spacing: 24) {
@@ -308,11 +317,11 @@ private struct SuccessView: View {
             }
 
             VStack(spacing: 12) {
-                Text("Өтінішіңіз жіберілді!")
+                Text(AppText.pick("Өтінішіңіз жіберілді!", "Заявка отправлена!", language: onboarding.currentLanguage))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text("Ментор немесе әкімші өтінішіңізді тексеріп,\nжуырда хабарласады.")
+                Text(AppText.pick("Ментор немесе әкімші өтінішіңізді тексеріп,\nжуырда хабарласады.", "Ментор или администратор проверит заявку\nи скоро свяжется с вами.", language: onboarding.currentLanguage))
                     .font(.system(size: 14))
                     .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -321,7 +330,7 @@ private struct SuccessView: View {
             Button {
                 onDone()
             } label: {
-                Text("Жарайды")
+                Text(AppText.pick("Жарайды", "Готово", language: onboarding.currentLanguage))
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)

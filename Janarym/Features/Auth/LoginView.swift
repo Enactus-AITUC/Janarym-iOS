@@ -5,12 +5,14 @@ import SwiftUI
 struct LoginView: View {
 
     @EnvironmentObject private var authService: AuthService
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     @State private var email    = ""
     @State private var password = ""
     @State private var showApplication = false
 
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    private var language: UserProfile.Language { onboarding.currentLanguage }
+    private var kk: Bool { language == .kazakh }
 
     var body: some View {
         ZStack {
@@ -33,6 +35,13 @@ struct LoginView: View {
                 .offset(y: -120)
 
             VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    LanguageSwitcher(compact: true)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+
                 Spacer()
 
                 // Logo
@@ -50,7 +59,7 @@ struct LoginView: View {
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(.white)
 
-                    Text(kk ? "Дауыстық AI-ассистент" : "Голосовой AI-ассистент")
+                    Text(AppText.pick("Дауыстық AI-ассистент", "Голосовой AI-ассистент", language: language))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -71,7 +80,7 @@ struct LoginView: View {
                     // Password field
                     JAuthField(
                         icon: "lock.fill",
-                        placeholder: kk ? "Құпия сөз" : "Пароль",
+                        placeholder: AppText.pick("Құпия сөз", "Пароль", language: language),
                         text: $password,
                         isSecure: true
                     )
@@ -98,7 +107,7 @@ struct LoginView: View {
                                 ProgressView()
                                     .tint(.black)
                             } else {
-                                Text(kk ? "Кіру" : "Войти")
+                                Text(AppText.pick("Кіру", "Войти", language: language))
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundStyle(.black)
                             }
@@ -130,9 +139,9 @@ struct LoginView: View {
                     showApplication = true
                 } label: {
                     HStack(spacing: 6) {
-                        Text(kk ? "Аккаунтым жоқ —" : "Нет аккаунта —")
+                        Text(AppText.pick("Аккаунтым жоқ —", "Нет аккаунта —", language: language))
                             .foregroundStyle(.white.opacity(0.5))
-                        Text(kk ? "Өтініш беру" : "Подать заявку")
+                        Text(AppText.pick("Өтініш беру", "Подать заявку", language: language))
                             .foregroundStyle(Color.green)
                     }
                     .font(.system(size: 14, weight: .medium))

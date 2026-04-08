@@ -47,3 +47,5 @@ Pods/
 *.swp
 *~
 .env
+functions/node_modules/
+workers/openai-proxy/.wrangler/

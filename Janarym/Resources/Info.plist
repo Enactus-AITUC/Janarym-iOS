@@ -24,8 +24,6 @@
 	<string>Микрофон Janarym ассистентіне керек</string>
 	<key>NSMotionUsageDescription</key>
 	<string>VR режимде гироскоп Janarym-ға қажет</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Сөйлеуді тану wake word анықтау үшін керек</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

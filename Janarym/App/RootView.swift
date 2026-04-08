@@ -69,6 +69,8 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var permissionsReady = false
 
+    private func print(_ items: Any...) {}
+
     var body: some View {
         ZStack {
             // Барлық экрандардың артындағы қара фон
@@ -159,9 +161,6 @@ struct RootView: View {
         .onReceive(coordinator.permissionManager.$microphoneGranted) { _ in
             recheckAndNavigate()
         }
-        .onReceive(coordinator.permissionManager.$speechGranted) { _ in
-            recheckAndNavigate()
-        }
         // Settings-тен қайтқанда рұқсаттарды қайта тексеру
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active, !permissionsReady {
@@ -198,7 +197,7 @@ struct RootView: View {
     /// Жеке рұқсат @Published өзгергенде — бәрі берілсе navigate ету
     private func recheckAndNavigate() {
         let pm = coordinator.permissionManager
-        if pm.cameraGranted, pm.microphoneGranted, pm.speechGranted {
+        if pm.cameraGranted, pm.microphoneGranted {
             goToMainScreen()
         }
     }
@@ -237,12 +236,41 @@ struct AppStartupView: View {
                 ProgressView()
                     .tint(.white)
 
-                Text(OnboardingStore.shared.profile.language == .kazakh
-                     ? "Қосымша жүктеліп жатыр..."
-                     : "Загрузка приложения...")
+                Text(AppText.pick("Қосымша жүктеліп жатыр...", "Загрузка приложения..."))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
             }
+        }
+    }
+}
+
+struct LanguageSwitcher: View {
+    @ObservedObject private var onboarding = OnboardingStore.shared
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: compact ? 6 : 8) {
+            ForEach(UserProfile.Language.allCases, id: \.self) { language in
+                Button {
+                    onboarding.updateLanguage(language)
+                } label: {
+                    Text(language == .kazakh ? "KZ" : "RU")
+                        .font(.system(size: compact ? 12 : 13, weight: .bold))
+                        .foregroundStyle(onboarding.currentLanguage == language ? .black : .white.opacity(0.75))
+                        .padding(.horizontal, compact ? 10 : 12)
+                        .padding(.vertical, compact ? 7 : 8)
+                        .background(
+                            Capsule()
+                                .fill(onboarding.currentLanguage == language ? Color.green : Color.white.opacity(0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(compact ? 4 : 6)
+        .background(Capsule().fill(Color.black.opacity(0.28)))
+        .overlay {
+            Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 1)
         }
     }
 }
@@ -255,12 +283,10 @@ struct JanarymMainView: View {
 
     @State private var isModesOpen = false
     @State private var showPaywall = false
-    @State private var isPTTPressed = false
-    @ObservedObject private var geminiService: GeminiLiveService
+    @ObservedObject private var realtimeService: OpenAIRealtimeService
     @State private var showDashboard = false
     @State private var showLogoutConfirm = false
     @State private var showTierInfo = false
-    @State private var showMedCard = false
     @ObservedObject private var sub = SubscriptionManager.shared
     @ObservedObject private var onboarding = OnboardingStore.shared
     @EnvironmentObject private var authService: AuthService
@@ -270,7 +296,7 @@ struct JanarymMainView: View {
     init(coordinator: AssistantCoordinator) {
         self.coordinator = coordinator
         _cameraService = ObservedObject(wrappedValue: coordinator.cameraService)
-        _geminiService = ObservedObject(wrappedValue: coordinator.geminiService)
+        _realtimeService = ObservedObject(wrappedValue: coordinator.realtimeService)
     }
 
     var body: some View {
@@ -345,10 +371,22 @@ struct JanarymMainView: View {
                                 Label(user.role.label, systemImage: "shield.fill")
                             }
                         }
+                        Section(header: Text(AppText.pick("Тіл", "Язык", language: onboarding.currentLanguage))) {
+                            ForEach(UserProfile.Language.allCases, id: \.self) { language in
+                                Button {
+                                    onboarding.updateLanguage(language)
+                                } label: {
+                                    Label(
+                                        language.displayName,
+                                        systemImage: onboarding.currentLanguage == language ? "checkmark.circle.fill" : "circle"
+                                    )
+                                }
+                            }
+                        }
                         Button(role: .destructive) {
                             showLogoutConfirm = true
                         } label: {
-                            Label(kk ? "Шығу" : "Выйти", systemImage: "rectangle.portrait.and.arrow.right")
+                            Label(AppText.pick("Шығу", "Выйти", language: onboarding.currentLanguage), systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     } label: {
                         Image(systemName: "person.circle.fill")
@@ -361,38 +399,41 @@ struct JanarymMainView: View {
                 // VStack safe area сақтайды — Dynamic Island-тан автоматты кейін тұрады
 
                 // Transcription + Response overlay
-                if !coordinator.lastTranscription.isEmpty || !coordinator.lastResponse.isEmpty {
+                if !coordinator.liveTranscript.isEmpty || !coordinator.liveResponseText.isEmpty {
+                    ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 6) {
-                        if !coordinator.lastTranscription.isEmpty {
+                        if !coordinator.liveTranscript.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "person.fill")
                                     .font(.system(size: 11))
                                     .foregroundStyle(.white.opacity(0.5))
-                                Text(coordinator.lastTranscription)
+                                Text(coordinator.liveTranscript)
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(.white)
-                                    .lineLimit(3)
+                                    .lineLimit(8)
                             }
                         }
-                        if !coordinator.lastResponse.isEmpty {
+                        if !coordinator.liveResponseText.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color.green.opacity(0.8))
-                                Text(coordinator.lastResponse)
+                                Text(coordinator.liveResponseText)
                                     .font(.system(size: 14))
                                     .foregroundStyle(.white.opacity(0.9))
-                                    .lineLimit(4)
+                                    .lineLimit(8)
                             }
                         }
                     }
+                    }
+                    .frame(maxHeight: 180)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color.black.opacity(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .padding(.horizontal, 16)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .animation(.easeInOut(duration: 0.3), value: coordinator.lastTranscription)
+                    .animation(.easeInOut(duration: 0.3), value: coordinator.liveTranscript)
                 }
 
                 Spacer()
@@ -400,45 +441,10 @@ struct JanarymMainView: View {
                 // Bottom — PTT button + modes menu + button
                 // GeometryReader geo пайдаланамыз — landscape-да overflow болмасын
                 HStack(alignment: .bottom) {
-                    // Left column: med card button + PTT
-                    VStack(alignment: .leading, spacing: 10) {
-                        // Medical card shortcut
-                        Button { showMedCard = true } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.black.opacity(0.55))
-                                    .frame(width: 40, height: 40)
-                                    .overlay(Circle().strokeBorder(Color.red.opacity(0.55), lineWidth: 1.5))
-                                Image(systemName: "cross.case.fill")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(Color.red.opacity(0.90))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(kk ? "Медициналық карта" : "Медкарта")
-                        .accessibilityHint(kk ? "Медициналық ақпаратты ашу" : "Открыть медицинскую карту")
-
-                        // PTT (Push-to-Talk) батырмасы
-                        GeminiPTTButton(
-                            geminiState: geminiService.state,
-                            isPressing: isPTTPressed
-                        )
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in
-                                    if !isPTTPressed {
-                                        isPTTPressed = true
-                                        coordinator.startPTT()
-                                    }
-                                }
-                                .onEnded { _ in
-                                    if isPTTPressed {
-                                        isPTTPressed = false
-                                        coordinator.stopPTT()
-                                    }
-                                }
-                        )
+                    Button(action: toggleVoiceCapture) {
+                        LivePTTButton(realtimeState: realtimeService.state)
                     }
+                    .buttonStyle(.plain)
                     .padding(.leading, 24)
                     .padding(.bottom, 16)
 
@@ -485,9 +491,6 @@ struct JanarymMainView: View {
         .sheet(isPresented: $showTierInfo) {
             TierInfoSheet(tier: sub.tier)
         }
-        .sheet(isPresented: $showMedCard) {
-            MedCardScreen()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .openPaywall)) { _ in
             showPaywall = true
         }
@@ -502,13 +505,13 @@ struct JanarymMainView: View {
                 }
             }
         }
-        .alert(kk ? "Шығу" : "Выйти", isPresented: $showLogoutConfirm) {
-            Button(kk ? "Жоқ" : "Нет", role: .cancel) { }
-            Button(kk ? "Иә, шығу" : "Да, выйти", role: .destructive) {
+        .alert(AppText.pick("Шығу", "Выйти", language: onboarding.currentLanguage), isPresented: $showLogoutConfirm) {
+            Button(AppText.pick("Жоқ", "Нет", language: onboarding.currentLanguage), role: .cancel) { }
+            Button(AppText.pick("Иә, шығу", "Да, выйти", language: onboarding.currentLanguage), role: .destructive) {
                 authService.signOut()
             }
         } message: {
-            Text(kk ? "Аккаунттан шығасыз ба?" : "Выйти из аккаунта?")
+            Text(AppText.pick("Аккаунттан шығасыз ба?", "Выйти из аккаунта?", language: onboarding.currentLanguage))
         }
     }
 
@@ -525,11 +528,22 @@ struct JanarymMainView: View {
             isModesOpen = false
         }
     }
+
+    private func toggleVoiceCapture() {
+        switch realtimeService.state {
+        case .recording:
+            coordinator.stopPTT()
+        case .idle, .disconnected:
+            coordinator.startPTT()
+        default:
+            break
+        }
+    }
 }
 
 struct CameraStartupOverlay: View {
     let error: AppError?
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     var body: some View {
         VStack(spacing: 12) {
@@ -538,8 +552,8 @@ struct CameraStartupOverlay: View {
                 .scaleEffect(1.15)
 
             Text(error == nil
-                 ? (kk ? "Камера іске қосылып жатыр..." : "Запуск камеры...")
-                 : (kk ? "Камераны іске қосу сәтсіз болды" : "Не удалось запустить камеру"))
+                 ? AppText.pick("Камера іске қосылып жатыр...", "Запуск камеры...", language: onboarding.currentLanguage)
+                 : AppText.pick("Камераны іске қосу сәтсіз болды", "Не удалось запустить камеру", language: onboarding.currentLanguage))
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
 
@@ -575,7 +589,7 @@ struct JStatusPill: View {
     private var kk: Bool { onboarding.profile.language == .kazakh }
 
     private var modeLabel: String {
-        kk ? "Қалыпты режим" : "Обычный режим"
+        AppText.pick("Қалыпты режим", "Обычный режим", language: onboarding.currentLanguage)
     }
 
     private var subLabel: String { assistantMode.localizedTitle }
@@ -770,26 +784,28 @@ struct JModesButton: View {
     }
 }
 
-// MARK: - Gemini PTT Button
+// MARK: - Live PTT Button
 
-struct GeminiPTTButton: View {
-    let geminiState: GeminiLiveState
-    let isPressing: Bool
+struct LivePTTButton: View {
+    let realtimeState: OpenAIRealtimeState
 
     private var bgColor: Color {
-        switch geminiState {
+        switch realtimeState {
         case .recording:   return Color(red: 0.95, green: 0.3, blue: 0.1)
         case .processing:  return Color(red: 0.55, green: 0.36, blue: 0.97)
         case .connecting:  return Color(red: 0.4, green: 0.4, blue: 0.6)
-        default:           return isPressing ? Color(red: 0.95, green: 0.3, blue: 0.1) : Color.black.opacity(0.65)
+        case .speaking:    return Color(red: 0.2, green: 0.78, blue: 0.55)
+        default:           return Color.black.opacity(0.65)
         }
     }
 
     private var icon: String {
-        switch geminiState {
-        case .recording:  return "mic.fill"
+        switch realtimeState {
+        case .recording:  return "stop.fill"
         case .processing: return "waveform"
-        default:          return isPressing ? "mic.fill" : "mic.circle"
+        case .speaking:   return "speaker.wave.2.fill"
+        case .connecting: return "bolt.horizontal.circle"
+        default:          return "mic.circle"
         }
     }
 
@@ -801,16 +817,15 @@ struct GeminiPTTButton: View {
                     Circle()
                         .strokeBorder(.white.opacity(0.25), lineWidth: 1.5)
                 }
-                .shadow(color: bgColor.opacity(0.5), radius: isPressing ? 18 : 10, y: 4)
+                .shadow(color: bgColor.opacity(0.5), radius: realtimeState == .recording ? 18 : 10, y: 4)
 
             Image(systemName: icon)
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(.white)
         }
         .frame(width: 64, height: 64)
-        .scaleEffect(isPressing ? 1.12 : 1.0)
-        .animation(.easeInOut(duration: 0.12), value: isPressing)
-        .animation(.easeInOut(duration: 0.2), value: geminiState)
+        .scaleEffect(realtimeState == .recording ? 1.12 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: realtimeState)
     }
 }
 
@@ -902,7 +917,7 @@ struct TierInfoSheet: View {
                 ("infinity",             "Шексіз сұрақтар"),
                 ("camera.fill",          "Жоғары сапалы AI көру (512px)"),
                 ("square.grid.2x2.fill", "Барлық режимдер қол жетімді"),
-                ("mic.fill",             "Gemini Live дауыстық ассистент"),
+                ("mic.fill",             "Жанды дауыстық ассистент"),
                 ("map.fill",             "Навигация режимі"),
                 ("shield.fill",          "Қауіпсіздік режимі"),
                 ("photo.fill",           "Жоғары сапалы сурет талдауы"),
@@ -910,7 +925,7 @@ struct TierInfoSheet: View {
                 ("infinity",             "Безлимитные запросы"),
                 ("camera.fill",          "Высококачественное AI-зрение (512px)"),
                 ("square.grid.2x2.fill", "Все режимы доступны"),
-                ("mic.fill",             "Голосовой ассистент Gemini Live"),
+                ("mic.fill",             "Живой голосовой ассистент"),
                 ("map.fill",             "Режим навигации"),
                 ("shield.fill",          "Режим безопасности"),
                 ("photo.fill",           "Высокое качество анализа изображений"),
@@ -920,13 +935,13 @@ struct TierInfoSheet: View {
                 ("50.circle.fill",       "Күніне 50 сұрақ"),
                 ("camera.fill",          "Камера арқылы AI көру (384px)"),
                 ("square.grid.2x2.fill", "Жалпы + Оқу + Сауда режимдері"),
-                ("mic.fill",             "Gemini Live PTT"),
+                ("mic.fill",             "Жанды дауыстық батырма"),
                 ("speaker.wave.2.fill",  "Дауыс синтезі"),
             ] : [
                 ("50.circle.fill",       "50 запросов в день"),
                 ("camera.fill",          "AI-зрение через камеру (384px)"),
                 ("square.grid.2x2.fill", "Общий + Чтение + Покупки режимы"),
-                ("mic.fill",             "Gemini Live PTT"),
+                ("mic.fill",             "Кнопка живого голоса"),
                 ("speaker.wave.2.fill",  "Синтез речи"),
             ]
         }

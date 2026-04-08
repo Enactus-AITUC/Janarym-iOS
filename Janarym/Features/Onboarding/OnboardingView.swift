@@ -316,7 +316,7 @@ struct LanguageWelcomeScreen: View {
             Spacer().frame(height: 8)
 
             // Subtitle
-            Text("Дауыстық AI-ассистент")
+            Text(draft.language == .kazakh ? "Дауыстық AI-ассистент" : "Голосовой AI-ассистент")
                 .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(.white.opacity(0.5))
                 .opacity(showSubtitle ? 1 : 0)
@@ -358,7 +358,7 @@ struct LanguageWelcomeScreen: View {
                     onContinue()
                 }
             } label: {
-                Text("Жалғастыру")
+                Text(draft.language == .kazakh ? "Жалғастыру" : "Продолжить")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)

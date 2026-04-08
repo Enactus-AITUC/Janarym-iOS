@@ -73,8 +73,9 @@ struct MentorDashboardView: View {
     let user: AppUser
     @StateObject private var vm: MentorDashboardVM
     @EnvironmentObject private var authService: AuthService
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    private var kk: Bool { onboarding.currentLanguage == .kazakh }
 
     init(user: AppUser) {
         self.user = user
@@ -113,6 +114,9 @@ struct MentorDashboardView: View {
                 Text(kk ? "Панель" : "Панель")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
+                Text(user.role.label)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.45))
                 Text(user.name)
                     .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.45))

@@ -10,7 +10,10 @@ final class CameraService: NSObject, ObservableObject {
 
     private let sessionQueue = DispatchQueue(label: "com.janarym.camera")
     private var isConfigured = false
+    private var isStarting = false
     private var timeoutWork: DispatchWorkItem?
+
+    private var activeVideoDevice: AVCaptureDevice?
 
     // MARK: - Frame capture (Vision үшін)
     private let frameOutput = AVCaptureVideoDataOutput()
@@ -21,6 +24,15 @@ final class CameraService: NSObject, ObservableObject {
     var autoTorchEnabled = false
     private var torchFrameCounter = 0
     private var currentTorchState = false
+
+    override init() {
+        super.init()
+        observeSessionNotifications()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     // MARK: - Frame capture public API
 
@@ -60,6 +72,10 @@ final class CameraService: NSObject, ObservableObject {
     // MARK: - Session control
 
     func start() {
+        DispatchQueue.main.async {
+            self.error = nil
+        }
+
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
         case .authorized:
@@ -80,41 +96,52 @@ final class CameraService: NSObject, ObservableObject {
     }
 
     private func startSession() {
-        // 5 секундтық timeout — камера ашылмаса қате көрсету
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, !self.isRunning else { return }
-            print("⚠️ CameraService: 5 секунд ішінде камера ашылмады")
-            self.error = .cameraUnavailable
-        }
-        timeoutWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
-
         sessionQueue.async { [weak self] in
             guard let self else { return }
+            guard !self.isStarting else { return }
+
+            self.isStarting = true
+            self.scheduleStartupTimeout()
 
             if !self.isConfigured {
                 self.configureSession()
             }
 
             // configureSession сәтсіз болса — тоқта
-            guard self.isConfigured else { return }
+            guard self.isConfigured else {
+                self.finishStart(running: false)
+                return
+            }
 
             if !self.session.isRunning {
                 self.session.startRunning()
             }
 
-            // startRunning() нәтижесін тексеру
-            let running = self.session.isRunning
-            DispatchQueue.main.async {
-                self.timeoutWork?.cancel()
-                self.timeoutWork = nil
-                if running {
-                    self.isRunning = true
-                    self.error = nil
-                } else {
-                    print("⚠️ CameraService: session.startRunning() сәтсіз болды")
-                    self.error = .cameraUnavailable
-                }
+            self.finishStart(running: self.session.isRunning)
+        }
+    }
+
+    private func scheduleStartupTimeout() {
+        timeoutWork?.cancel()
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.isRunning else { return }
+            self.error = .cameraUnavailable
+        }
+        timeoutWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+    }
+
+    private func finishStart(running: Bool) {
+        DispatchQueue.main.async {
+            self.timeoutWork?.cancel()
+            self.timeoutWork = nil
+            self.isStarting = false
+            self.isRunning = running
+            if running {
+                self.error = nil
+            } else {
+                self.error = .cameraUnavailable
             }
         }
     }
@@ -123,8 +150,16 @@ final class CameraService: NSObject, ObservableObject {
         timeoutWork?.cancel()
         timeoutWork = nil
         sessionQueue.async { [weak self] in
-            guard let self, self.session.isRunning else { return }
-            self.session.stopRunning()
+            guard let self else { return }
+
+            self.isStarting = false
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+            if self.currentTorchState {
+                self.setTorchState(on: false)
+                self.currentTorchState = false
+            }
             DispatchQueue.main.async { self.isRunning = false }
         }
     }
@@ -141,6 +176,7 @@ final class CameraService: NSObject, ObservableObject {
         if isConfigured { return }
 
         session.beginConfiguration()
+        resetSessionGraphLocked()
 
         // .high барлық iPhone-да жұмыс жасамайды — fallback .medium
         if session.canSetSessionPreset(.high) {
@@ -150,11 +186,12 @@ final class CameraService: NSObject, ObservableObject {
         }
 
         // Камера құрылғысы
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        guard let device = preferredVideoDevice() else {
             session.commitConfiguration()
             DispatchQueue.main.async { self.error = .cameraUnavailable }
             return
         }
+        activeVideoDevice = device
 
         // Input
         guard let input = try? AVCaptureDeviceInput(device: device),
@@ -182,6 +219,27 @@ final class CameraService: NSObject, ObservableObject {
         isConfigured = true
     }
 
+    private func resetSessionGraphLocked() {
+        session.inputs.forEach { session.removeInput($0) }
+        frameOutput.setSampleBufferDelegate(nil, queue: nil)
+        session.outputs.forEach { session.removeOutput($0) }
+        activeVideoDevice = nil
+        previousPixelBuffer = nil
+        latestPixelBuffer = nil
+        torchFrameCounter = 0
+        currentTorchState = false
+    }
+
+    private func preferredVideoDevice() -> AVCaptureDevice? {
+        if let back = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+            return back
+        }
+        if let front = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) {
+            return front
+        }
+        return AVCaptureDevice.default(for: .video)
+    }
+
     // MARK: - Torch
 
     func setTorch(on: Bool) {
@@ -190,26 +248,81 @@ final class CameraService: NSObject, ObservableObject {
 
     private func applyTorchOnSessionQueue(on: Bool) {
         sessionQueue.async { [weak self] in
-            guard self != nil else { return }
-            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-                  device.hasTorch, device.isTorchAvailable else { return }
-            do {
-                try device.lockForConfiguration()
-                if on {
-                    try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
-                } else {
-                    device.torchMode = .off
-                }
-                device.unlockForConfiguration()
-            } catch {}
+            self?.setTorchState(on: on)
         }
     }
 
     var currentBrightness: Float {
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else { return 1 }
+        guard let device = activeVideoDevice ?? preferredVideoDevice() else { return 1 }
         let iso    = device.iso
         let maxISO = device.activeFormat.maxISO
         return max(0, min(1, 1.0 - (iso / maxISO)))
+    }
+
+    private func setTorchState(on: Bool) {
+        guard let device = activeVideoDevice,
+              device.hasTorch, device.isTorchAvailable else { return }
+        do {
+            try device.lockForConfiguration()
+            if on {
+                try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+            } else {
+                device.torchMode = .off
+            }
+            device.unlockForConfiguration()
+        } catch {}
+    }
+
+    // MARK: - Runtime recovery
+
+    private func observeSessionNotifications() {
+        let center = NotificationCenter.default
+        center.addObserver(
+            self,
+            selector: #selector(handleSessionRuntimeError(_:)),
+            name: .AVCaptureSessionRuntimeError,
+            object: session
+        )
+        center.addObserver(
+            self,
+            selector: #selector(handleSessionWasInterrupted(_:)),
+            name: .AVCaptureSessionWasInterrupted,
+            object: session
+        )
+        center.addObserver(
+            self,
+            selector: #selector(handleSessionInterruptionEnded(_:)),
+            name: .AVCaptureSessionInterruptionEnded,
+            object: session
+        )
+    }
+
+    @objc
+    private func handleSessionRuntimeError(_ notification: Notification) {
+        _ = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
+
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.isConfigured = false
+            self.activeVideoDevice = nil
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+            DispatchQueue.main.async {
+                self.isRunning = false
+                self.error = .cameraUnavailable
+            }
+        }
+    }
+
+    @objc
+    private func handleSessionWasInterrupted(_ notification: Notification) {
+        _ = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber
+    }
+
+    @objc
+    private func handleSessionInterruptionEnded(_ notification: Notification) {
+        start()
     }
 
     // MARK: - Motion detection
@@ -221,6 +334,7 @@ final class CameraService: NSObject, ObservableObject {
     private let motionThreshold: Float = 0.018
 
     private func checkMotion(current: CVPixelBuffer) {
+        guard onMotionDetected != nil else { return }
         guard let previous = previousPixelBuffer else { return }
         let now = CFAbsoluteTimeGetCurrent()
         guard now - lastMotionTime >= motionCooldown else { return }

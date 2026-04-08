@@ -85,6 +85,8 @@ final class SubscriptionManager: ObservableObject {
 
     private var updateListenerTask: Task<Void, Never>?
 
+    private func print(_ items: Any...) {}
+
     private init() {
         updateListenerTask = listenForTransactions()
         Task { await loadAndCheck() }
