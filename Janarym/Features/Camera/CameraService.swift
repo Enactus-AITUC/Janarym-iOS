@@ -3,14 +3,17 @@ import UIKit
 
 final class CameraService: NSObject, ObservableObject {
 
-    @Published var isRunning = false
+    @Published var isRunning  = false
+    @Published var isStarting = false   // UI overlay үшін
     @Published var error: AppError?
 
     let session = AVCaptureSession()
 
-    private let sessionQueue = DispatchQueue(label: "com.janarym.camera")
-    private var isConfigured = false
-    private var isStarting = false
+    private let sessionQueue  = DispatchQueue(label: "com.janarym.camera")
+    private var isConfigured  = false
+    private var _isStarting   = false   // internal flag (sessionQueue-да)
+    private var retryCount    = 0
+    private let maxRetries    = 2
     private var timeoutWork: DispatchWorkItem?
 
     private var activeVideoDevice: AVCaptureDevice?
@@ -98,9 +101,10 @@ final class CameraService: NSObject, ObservableObject {
     private func startSession() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
-            guard !self.isStarting else { return }
+            guard !self._isStarting else { return }
 
-            self.isStarting = true
+            self._isStarting = true
+            DispatchQueue.main.async { self.isStarting = true }
             self.scheduleStartupTimeout()
 
             if !self.isConfigured {
@@ -123,36 +127,50 @@ final class CameraService: NSObject, ObservableObject {
 
     private func scheduleStartupTimeout() {
         timeoutWork?.cancel()
-
         let work = DispatchWorkItem { [weak self] in
             guard let self, !self.isRunning else { return }
-            self.error = .cameraUnavailable
+            // Reset flags — future start() calls жұмыс жасайды
+            self._isStarting = false
+            self.isConfigured = false
+            DispatchQueue.main.async {
+                self.isStarting = false
+                // Auto-retry (maxRetries рет)
+                if self.retryCount < self.maxRetries {
+                    self.retryCount += 1
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                        self?.start()
+                    }
+                } else {
+                    self.retryCount = 0
+                    self.error = .cameraUnavailable
+                }
+            }
         }
         timeoutWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)  // 5s → 3s
     }
 
     private func finishStart(running: Bool) {
         DispatchQueue.main.async {
             self.timeoutWork?.cancel()
             self.timeoutWork = nil
-            self.isStarting = false
-            self.isRunning = running
-            if running {
-                self.error = nil
-            } else {
-                self.error = .cameraUnavailable
-            }
+            self._isStarting = false
+            self.isStarting  = false
+            self.retryCount  = 0
+            self.isRunning   = running
+            self.error       = running ? nil : .cameraUnavailable
         }
     }
 
     func stop() {
         timeoutWork?.cancel()
         timeoutWork = nil
+        retryCount = 0
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
-            self.isStarting = false
+            self._isStarting = false
+            DispatchQueue.main.async { self.isStarting = false }
             if self.session.isRunning {
                 self.session.stopRunning()
             }
@@ -299,18 +317,25 @@ final class CameraService: NSObject, ObservableObject {
 
     @objc
     private func handleSessionRuntimeError(_ notification: Notification) {
-        _ = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
-
         sessionQueue.async { [weak self] in
             guard let self else { return }
-            self.isConfigured = false
+            self.isConfigured    = false
+            self._isStarting     = false
             self.activeVideoDevice = nil
-            if self.session.isRunning {
-                self.session.stopRunning()
-            }
+            if self.session.isRunning { self.session.stopRunning() }
             DispatchQueue.main.async {
-                self.isRunning = false
-                self.error = .cameraUnavailable
+                self.isStarting = false
+                self.isRunning  = false
+                // Auto-retry on runtime error
+                if self.retryCount < self.maxRetries {
+                    self.retryCount += 1
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                        self?.start()
+                    }
+                } else {
+                    self.retryCount = 0
+                    self.error = .cameraUnavailable
+                }
             }
         }
     }

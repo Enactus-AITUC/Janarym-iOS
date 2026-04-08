@@ -124,8 +124,13 @@ struct RootView: View {
                             permissionsReady = true
                         }
                         coordinator.onMainViewAppear()
+                        // 1s кейін ғана camera overlay көрсету — жылдам старт-та flash жоқ
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            showCameraOverlay = true
+                        }
                     }
                     .onDisappear {
+                        showCameraOverlay = false
                         coordinator.onMainViewDisappear()
                     }
             }
@@ -287,6 +292,7 @@ struct JanarymMainView: View {
     @State private var showDashboard = false
     @State private var showLogoutConfirm = false
     @State private var showTierInfo = false
+    @State private var showCameraOverlay = false  // 1s delay — жылдам старт flash жоқ
     @ObservedObject private var sub = SubscriptionManager.shared
     @ObservedObject private var onboarding = OnboardingStore.shared
     @EnvironmentObject private var authService: AuthService
@@ -310,8 +316,12 @@ struct JanarymMainView: View {
             .ignoresSafeArea(.all)
             .allowsHitTesting(false)
 
-            if !cameraService.isRunning || cameraService.error != nil {
-                CameraStartupOverlay(error: cameraService.error)
+            if showCameraOverlay && (!cameraService.isRunning || cameraService.error != nil) {
+                CameraStartupOverlay(
+                    error: cameraService.error,
+                    isStarting: cameraService.isStarting
+                )
+                .transition(.opacity.animation(.easeInOut(duration: 0.3)))
             }
 
             // Dim overlay
@@ -543,7 +553,16 @@ struct JanarymMainView: View {
 
 struct CameraStartupOverlay: View {
     let error: AppError?
+    var isStarting: Bool = false
     @ObservedObject private var onboarding = OnboardingStore.shared
+
+    private var label: String {
+        let kk = onboarding.currentLanguage == .kazakh
+        if let _ = error {
+            return kk ? "Камера қайта іске қосылып жатыр..." : "Перезапуск камеры..."
+        }
+        return kk ? "Камера іске қосылып жатыр..." : "Запуск камеры..."
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -551,19 +570,9 @@ struct CameraStartupOverlay: View {
                 .tint(.white)
                 .scaleEffect(1.15)
 
-            Text(error == nil
-                 ? AppText.pick("Камера іске қосылып жатыр...", "Запуск камеры...", language: onboarding.currentLanguage)
-                 : AppText.pick("Камераны іске қосу сәтсіз болды", "Не удалось запустить камеру", language: onboarding.currentLanguage))
+            Text(label)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
-
-            if let message = error?.localizedDescription {
-                Text(message)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
-            }
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
