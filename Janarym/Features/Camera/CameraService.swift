@@ -10,8 +10,8 @@ final class CameraService: NSObject, ObservableObject {
     let session = AVCaptureSession()
 
     private let sessionQueue  = DispatchQueue(label: "com.janarym.camera")
-    private var isConfigured  = false
-    private var _isStarting   = false   // internal flag (sessionQueue-да)
+    private var isConfigured   = false
+    private var sessionStarting = false  // sessionQueue-дағы internal flag
     private var retryCount    = 0
     private let maxRetries    = 2
     private var timeoutWork: DispatchWorkItem?
@@ -101,9 +101,9 @@ final class CameraService: NSObject, ObservableObject {
     private func startSession() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
-            guard !self._isStarting else { return }
+            guard !self.sessionStarting else { return }
 
-            self._isStarting = true
+            self.sessionStarting = true
             DispatchQueue.main.async { self.isStarting = true }
             self.scheduleStartupTimeout()
 
@@ -130,7 +130,7 @@ final class CameraService: NSObject, ObservableObject {
         let work = DispatchWorkItem { [weak self] in
             guard let self, !self.isRunning else { return }
             // Reset flags — future start() calls жұмыс жасайды
-            self._isStarting = false
+            self.sessionStarting = false
             self.isConfigured = false
             DispatchQueue.main.async {
                 self.isStarting = false
@@ -154,7 +154,7 @@ final class CameraService: NSObject, ObservableObject {
         DispatchQueue.main.async {
             self.timeoutWork?.cancel()
             self.timeoutWork = nil
-            self._isStarting = false
+            self.sessionStarting = false
             self.isStarting  = false
             self.retryCount  = 0
             self.isRunning   = running
@@ -169,7 +169,7 @@ final class CameraService: NSObject, ObservableObject {
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
-            self._isStarting = false
+            self.sessionStarting = false
             DispatchQueue.main.async { self.isStarting = false }
             if self.session.isRunning {
                 self.session.stopRunning()
@@ -320,7 +320,7 @@ final class CameraService: NSObject, ObservableObject {
         sessionQueue.async { [weak self] in
             guard let self else { return }
             self.isConfigured    = false
-            self._isStarting     = false
+            self.sessionStarting     = false
             self.activeVideoDevice = nil
             if self.session.isRunning { self.session.stopRunning() }
             DispatchQueue.main.async {
