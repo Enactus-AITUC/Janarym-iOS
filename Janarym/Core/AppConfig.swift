@@ -14,6 +14,10 @@ enum AppConfig {
         return secret(for: "OPENAI_REALTIME_SESSION_URL")
     }
 
+    static var openAIAPIKey: String {
+        secret(for: "OPENAI_API_KEY")
+    }
+
     static var yandexMapKitAPIKey: String {
         secret(for: "YANDEX_MAPKIT_API_KEY")
     }

@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 // MARK: - MedicationScanView
-// Camera/gallery picker → base64 JPEG → Gemini Flash 2.5 REST → JSON parse → pre-fill form.
+// Camera/gallery picker → base64 JPEG → OpenAI GPT-4.1 Vision → JSON parse → pre-fill form.
 
 struct MedicationScanView: View {
 
@@ -84,7 +84,7 @@ struct MedicationScanView: View {
                         RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.6))
                         VStack(spacing: 14) {
                             ProgressView().tint(.green).scaleEffect(1.4)
-                            Text(kk ? "Gemini талдап жатыр…" : "Gemini анализирует…")
+                            Text(kk ? "GPT талдап жатыр…" : "GPT анализирует…")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundStyle(.white)
                         }
@@ -180,7 +180,7 @@ struct MedicationScanView: View {
         }
     }
 
-    // MARK: - Gemini REST call
+    // MARK: - OpenAI Vision call
 
     private func analyzeImage(_ image: UIImage) async {
         isAnalyzing = true
@@ -199,19 +199,24 @@ struct MedicationScanView: View {
         """
 
         let payload: [String: Any] = [
-            "contents": [[
-                "parts": [
-                    ["inline_data": ["mime_type": "image/jpeg",
-                                     "data": jpeg.base64EncodedString()]],
-                    ["text": prompt]
+            "model": AppConfig.openAIVisionModel,
+            "max_tokens": 300,
+            "messages": [[
+                "role": "user",
+                "content": [
+                    [
+                        "type": "image_url",
+                        "image_url": ["url": "data:image/jpeg;base64,\(jpeg.base64EncodedString())"]
+                    ],
+                    [
+                        "type": "text",
+                        "text": prompt
+                    ]
                 ]
             ]]
         ]
 
-        guard
-            let url = URL(string:
-                "\(AppConfig.geminiBaseURL)/v1beta/models/\(AppConfig.geminiChatModel):generateContent?key=\(AppConfig.geminiAPIKey)")
-        else {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
             errorMessage = kk ? "URL қатесі" : "Ошибка URL"
             return
         }
@@ -219,17 +224,17 @@ struct MedicationScanView: View {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(AppConfig.openAIAPIKey)", forHTTPHeaderField: "Authorization")
         req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 
         do {
             let (data, _) = try await URLSession.shared.data(for: req)
 
             guard
-                let root        = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let candidates  = root["candidates"] as? [[String: Any]],
-                let content     = candidates.first?["content"] as? [String: Any],
-                let parts       = content["parts"] as? [[String: Any]],
-                let text        = parts.first?["text"] as? String
+                let root    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let choices = root["choices"] as? [[String: Any]],
+                let message = choices.first?["message"] as? [String: Any],
+                let text    = message["content"] as? String
             else {
                 errorMessage = kk ? "Жауапты оқу қатесі" : "Не удалось прочитать ответ"
                 return
