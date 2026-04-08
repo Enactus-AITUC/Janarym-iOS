@@ -369,19 +369,27 @@ final class OpenAIRealtimeService: NSObject, ObservableObject {
     }
 
     private func publishError(_ message: String) {
-        DispatchQueue.main.async { self.errorMessage = message; self.onFailure?(message) }
+        runOnMain { self.errorMessage = message; self.onFailure?(message) }
     }
     private func clearError() {
-        DispatchQueue.main.async { self.errorMessage = nil }
+        runOnMain { self.errorMessage = nil }
     }
     private func publishTranscription(_ text: String) {
-        DispatchQueue.main.async { self.onTranscription?(text) }
+        runOnMain { self.onTranscription?(text) }
     }
     private func publishResponseText(_ text: String) {
-        DispatchQueue.main.async { self.onResponseText?(text) }
+        runOnMain { self.onResponseText?(text) }
+    }
+    private func runOnMain(_ block: @escaping () -> Void) {
+        if Thread.isMainThread { block() } else { DispatchQueue.main.async(execute: block) }
     }
     private func updateConnectionState(_ newState: OpenAIRealtimeState, connected: Bool) {
-        DispatchQueue.main.async { self.state = newState; self.isConnected = connected }
+        if Thread.isMainThread {
+            state = newState
+            isConnected = connected
+        } else {
+            DispatchQueue.main.async { self.state = newState; self.isConnected = connected }
+        }
     }
 }
 
