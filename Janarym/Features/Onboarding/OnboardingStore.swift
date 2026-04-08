@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 // MARK: - UserProfile
 
@@ -12,7 +13,7 @@ struct UserProfile: Codable {
     var city:           String         = ""
     var purpose:        Purpose        = .all
     var hobbies:        String         = ""
-    var responseLength: ResponseLength = .medium
+    var responseLength: ResponseLength = .short
     var speechRate:     SpeechRate     = .normal
 
     // MARK: Enums
@@ -24,6 +25,19 @@ struct UserProfile: Codable {
             switch self {
             case .kazakh:  return "Қазақша"
             case .russian: return "Орысша"
+            }
+        }
+        var isKazakh: Bool { self == .kazakh }
+        var detectedLanguage: DetectedLanguage {
+            switch self {
+            case .kazakh: return .kazakh
+            case .russian: return .russian
+            }
+        }
+        var assistantLanguageName: String {
+            switch self {
+            case .kazakh: return "Kazakh"
+            case .russian: return "Russian"
             }
         }
     }
@@ -164,11 +178,17 @@ final class OnboardingStore: ObservableObject {
 
     func complete(with p: UserProfile) {
         profile = p
-        if let data = try? JSONEncoder().encode(p) {
-            UserDefaults.standard.set(data, forKey: profileKey)
-        }
+        persistProfile()
         UserDefaults.standard.set(true, forKey: completedKey)
         isCompleted = true
+    }
+
+    func updateLanguage(_ language: UserProfile.Language) {
+        guard profile.language != language else { return }
+        var updated = profile
+        updated.language = language
+        profile = updated
+        persistProfile()
     }
 
     func reset() {
@@ -178,15 +198,25 @@ final class OnboardingStore: ObservableObject {
         isCompleted = false
     }
 
+    var currentLanguage: UserProfile.Language { profile.language }
+    var isKazakh: Bool { currentLanguage.isKazakh }
+
+    private func persistProfile() {
+        if let data = try? JSONEncoder().encode(profile) {
+            UserDefaults.standard.set(data, forKey: profileKey)
+        }
+    }
+
     // MARK: - Dynamic system prompt
 
     var systemPrompt: String {
         let p  = profile
         let kk = p.language == .kazakh
+        let mismatchMessage = AppText.languageMismatchPrompt(for: p.language)
 
         let langRule = kk
-            ? "МАҢЫЗДЫ: ТЕК ҚАЗАҚША жауап бер. Орысша немесе ағылшынша ЖАЗБА."
-            : "ВАЖНО: Отвечай ТОЛЬКО по-русски. Английский и казахский НЕ ИСПОЛЬЗОВАТЬ."
+            ? "МАҢЫЗДЫ: ТЕК ҚАЗАҚША сұранысты қабылда және ТЕК ҚАЗАҚША жауап бер. Орысша немесе ағылшынша ҚАБЫЛДАМА, ЖАЗБА."
+            : "ВАЖНО: Принимай ТОЛЬКО русскую речь и отвечай ТОЛЬКО по-русски. Казахский и английский НЕ ПРИНИМАТЬ и НЕ ИСПОЛЬЗОВАТЬ."
 
         let nameClause = p.name.isEmpty ? ""
             : kk ? " Пайдаланушының аты — \(p.name)."
@@ -204,28 +234,40 @@ final class OnboardingStore: ObservableObject {
         let lengthRule: String
         switch p.responseLength {
         case .short:
-            lengthRule = kk ? "Жауап 1–2 сөйлемнен аспасын."
-                            : "Ответ — не более 1–2 предложений."
+            lengthRule = kk ? "Әдетте 2 қысқа сөйлеммен жауап бер. Бірінші сөйлемде негізгі жауапты айт, екінші сөйлемде бір нақты пайдалы деталь не жақын объектіні қос."
+                            : "Обычно отвечай 2 короткими предложениями. В первом дай прямой ответ, во втором добавь одну полезную конкретную деталь или ближайший объект."
         case .medium:
-            lengthRule = kk ? "Жауап орташа ұзындықта болсын."
-                            : "Отвечай умеренно, без лишних деталей."
+            lengthRule = kk ? "Әдетте 2 қысқа сөйлеммен жауап бер, тек қажет болса сәл кеңейт."
+                            : "Обычно отвечай 2 короткими предложениями, расширяй ответ только если это действительно нужно."
         case .long:
-            lengthRule = kk ? "Толық жауап бере аласың."
-                            : "Можно отвечать подробно, если нужно."
+            lengthRule = kk ? "Негізгі жауап бәрібір 2 түсінікті сөйлемнен басталсын, содан кейін ғана қажет болса толықтыр."
+                            : "Основной ответ всё равно начинай с 2 понятных предложений, и только потом при необходимости расширяй."
         }
 
         let visionRule = kk
-            ? "Әрбір сұрақпен бірге пайдаланушының камерасынан түсірілген сурет жіберіледі. Сен сол суретті КӨРЕ АЛАСЫҢ. 'Алдымда не тұр?', 'бұл не?', 'қарашы' деген сұрақтарға суретті талдап нақты жауап бер. Сурет болмаса — сұрақ бойынша жауап бер."
-            : "К каждому вопросу прилагается снимок с камеры пользователя. Ты МОЖЕШЬ ВИДЕТЬ этот снимок. На вопросы 'что передо мной?', 'что это?', 'посмотри' — анализируй снимок и отвечай конкретно. Если снимка нет — отвечай по контексту вопроса."
+            ? "Әрбір сұрақпен бірге пайдаланушының камерасынан түсірілген сурет жіберілуі мүмкін. Сен сол суретті КӨРЕ АЛАСЫҢ. 'Алдымда не тұр?', 'бұл не?', 'қарашы' деген сұрақтарға суретті талдап нақты жауап бер. Сурет анық болмаса, оны тура айт."
+            : "К каждому вопросу может прилагаться снимок с камеры пользователя. Ты МОЖЕШЬ ВИДЕТЬ этот снимок. На вопросы 'что передо мной?', 'что это?', 'посмотри' — анализируй снимок и отвечай конкретно. Если кадр неясный, скажи об этом прямо."
 
-        let base = """
+        let base = kk ? """
 Сен — Жанарым, нашар көретін немесе мүлде көрмейтін адамдарға арналған дауыстық AI-ассистентсің.\(nameClause)
 \(langRule)
+Егер пайдаланушы басқа тілде сөйлесе, дәл былай жауап бер: \(mismatchMessage)
 \(formalClause)
 \(lengthRule)
 \(visionRule)\(hobbyClause)
 Пайдаланушы не сұраса сол туралы жауап бер — өз тақырыбыңды мәжбүрлеп кіргізбе.
+Сөйлемнің соңын жұтып қойма, сөздерді қысқартпа, объект атауларын толық айт.
 Markdown, тізімдер, жұлдызшалар ПАЙДАЛАНБА — жауап TTS үшін. Тек табиғи сөйлеу.
+""" : """
+Ты — Жанарым, голосовой AI-ассистент для людей с плохим зрением или полной потерей зрения.\(nameClause)
+\(langRule)
+Если пользователь говорит на другом языке, ответь точно так: \(mismatchMessage)
+\(formalClause)
+\(lengthRule)
+\(visionRule)\(hobbyClause)
+Отвечай только по запросу пользователя и не навязывай свои темы.
+Не обрывай конец фразы, не проглатывай последние слова и произноси названия объектов полностью.
+Не используй markdown, списки и звёздочки — ответ предназначен для TTS. Говори естественно.
 """
         return base
     }
@@ -273,6 +315,66 @@ Markdown, тізімдер, жұлдызшалар ПАЙДАЛАНБА — жа
             return kk
                 ? "Сен қазір ОҚЫТУ режимінде жұмыс жасайсың. Камерадан барлық мәтінді оқы: кітап, газет, мәзір, жапсырма, хабарландыру, форма. Мәтінді дәл, нақты, толық оқы — ештеңені өткізіп жібермe. Сан, дата, мекенжайды дауыстап айт."
                 : "Ты в режиме ЧТЕНИЯ. Читай весь текст с камеры: книга, газета, меню, этикетка, объявление, форма. Читай точно, полностью — ничего не пропускай. Числа, даты, адреса произноси вслух."
+        }
+    }
+
+    func assistantPrompt(for mode: AppMode) -> String {
+        let modePrompt = modePrompt(for: mode)
+        guard !modePrompt.isEmpty else { return systemPrompt }
+        return "\(systemPrompt)\n\(modePrompt)"
+    }
+}
+
+enum AppText {
+    static func pick(_ kk: String, _ ru: String, language: UserProfile.Language = OnboardingStore.shared.currentLanguage) -> String {
+        language == .kazakh ? kk : ru
+    }
+
+    static func languageMismatchPrompt(for language: UserProfile.Language) -> String {
+        pick(
+            "Қайталап айтыңыз, тек қазақша сөйлеп сұраңыз.",
+            "Повторите, пожалуйста, только по-русски.",
+            language: language
+        )
+    }
+}
+
+extension UserRole {
+    var label: String {
+        let language = OnboardingStore.shared.currentLanguage
+        switch self {
+        case .developer:
+            return AppText.pick("Әзірлеуші", "Разработчик", language: language)
+        case .admin:
+            return AppText.pick("Әкімші", "Админ", language: language)
+        case .mentor:
+            return AppText.pick("Ментор", "Ментор", language: language)
+        case .parent:
+            return AppText.pick("Ата-ана", "Родитель", language: language)
+        case .member:
+            return AppText.pick("Мүше", "Участник", language: language)
+        }
+    }
+}
+
+extension ApplicationStatus {
+    var label: String {
+        let language = OnboardingStore.shared.currentLanguage
+        switch self {
+        case .pending:
+            return AppText.pick("Күтуде", "Ожидание", language: language)
+        case .approved:
+            return AppText.pick("Бекітілді", "Одобрено", language: language)
+        case .rejected:
+            return AppText.pick("Қабылданбады", "Отклонено", language: language)
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .pending: return .orange
+        case .approved: return .green
+        case .rejected: return .red
         }
     }
 }

@@ -24,7 +24,7 @@ PERM_GROUP_UID        = uid()
 ASST_GROUP_UID        = uid()
 MODES_GROUP_UID       = uid()
 SVC_GROUP_UID         = uid()
-GEMINI_GROUP_UID      = uid()
+OPENAI_GROUP_UID      = uid()
 SPEECH_GROUP_UID      = uid()
 RES_GROUP_UID         = uid()
 TARGET_UID            = uid()
@@ -59,7 +59,7 @@ sources = [
     ("SpeechRecorder.swift",              "Janarym/Features/Assistant/SpeechRecorder.swift",    ASST_GROUP_UID),
     ("WakeWordListener.swift",            "Janarym/Features/Assistant/WakeWordListener.swift",  ASST_GROUP_UID),
     ("ModesSheetView.swift",              "Janarym/Features/Modes/ModesSheetView.swift",         MODES_GROUP_UID),
-    ("GeminiLiveService.swift",           "Janarym/Services/Gemini/GeminiLiveService.swift",     GEMINI_GROUP_UID),
+    ("OpenAIRealtimeService.swift",       "Janarym/Services/OpenAI/OpenAIRealtimeService.swift",  OPENAI_GROUP_UID),
     ("SpeechSynthesizerService.swift",    "Janarym/Services/Speech/SpeechSynthesizerService.swift", SPEECH_GROUP_UID),
 ]
 
@@ -86,7 +86,7 @@ group_children = {
     PERM_GROUP_UID:   [],
     ASST_GROUP_UID:   [],
     MODES_GROUP_UID:  [],
-    GEMINI_GROUP_UID: [],
+    OPENAI_GROUP_UID: [],
     SPEECH_GROUP_UID: [],
     RES_GROUP_UID:    [INFO_PLIST_UID],
 }
@@ -273,22 +273,22 @@ L("\t\t};")
 L(f"\t\t{SVC_GROUP_UID} /* Services */ = {{")
 L("\t\t\tisa = PBXGroup;")
 L("\t\t\tchildren = (")
-L(f"\t\t\t\t{GEMINI_GROUP_UID} /* Gemini */,")
+L(f"\t\t\t\t{OPENAI_GROUP_UID} /* OpenAI */,")
 L(f"\t\t\t\t{SPEECH_GROUP_UID} /* Speech */,")
 L("\t\t\t);")
 L("\t\t\tpath = Services;")
 L("\t\t\tsourceTree = \"<group>\";")
 L("\t\t};")
 
-# Gemini group
-L(f"\t\t{GEMINI_GROUP_UID} /* Gemini */ = {{")
+# OpenAI group
+L(f"\t\t{OPENAI_GROUP_UID} /* OpenAI */ = {{")
 L("\t\t\tisa = PBXGroup;")
 L("\t\t\tchildren = (")
-for fref in group_children[GEMINI_GROUP_UID]:
+for fref in group_children[OPENAI_GROUP_UID]:
     name = next(n for n, p, g, f, b in src_uids if f == fref)
     L(f"\t\t\t\t{fref} /* {name} */,")
 L("\t\t\t);")
-L("\t\t\tpath = Gemini;")
+L("\t\t\tpath = OpenAI;")
 L("\t\t\tsourceTree = \"<group>\";")
 L("\t\t};")
 

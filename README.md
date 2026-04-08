@@ -13,7 +13,7 @@ cp Janarym/Resources/Secrets.example.plist Janarym/Resources/Secrets.plist
 ```
 
 Қажетті кілттер:
-- `GEMINI_API_KEY` — Gemini API кілті (міндетті)
+- `OPENAI_PROXY_URL` — Cloudflare Worker URL for the OpenAI voice proxy
 - `YANDEX_MAPKIT_API_KEY` — Yandex MapKit кілті (қазір қолданылмайды, болашақ үшін)
 
 ### 2. Xcode-да ашу
@@ -37,6 +37,14 @@ cp Janarym/Resources/Secrets.example.plist Janarym/Resources/Secrets.plist
 
 Нағыз iPhone-да іске қосыңыз (камера мен микрофон симуляторда толық жұмыс істемейді).
 
+### 5. Cloudflare Worker Proxy
+
+- `workers/openai-proxy/` ішіне кіріп `npm install -g wrangler` орнатыңыз
+- `wrangler login` арқылы Cloudflare-ға кіріңіз
+- `wrangler secret put OPENAI_API_KEY` арқылы OpenAI API key-ді worker secret ретінде сақтаңыз
+- `wrangler deploy` орындаңыз
+- Шыққан `https://...workers.dev` URL-ін `OPENAI_PROXY_URL` ретінде `Secrets.plist` ішіне жазыңыз
+
 ## Архитектура
 
 ```
@@ -44,12 +52,12 @@ Janarym/
 ├── App/                          # App entry point, root view, lifecycle
 ├── Core/                         # Config, enums, utilities
 ├── Features/
-│   ├── Assistant/                # Coordinator and Gemini voice flow
+│   ├── Assistant/                # Coordinator and OpenAI voice flow
 │   ├── Camera/                   # Camera service and preview
 │   ├── Modes/                    # Modes bottom sheet
 │   └── Permissions/              # Permission manager and UI
 ├── Services/
-│   ├── Gemini/                   # Gemini Live WebSocket voice service
+│   ├── OpenAI/                   # OpenAI STT + vision + TTS service
 │   └── Speech/                   # TTS service
 └── Resources/                    # Info.plist, Secrets
 ```
@@ -57,13 +65,13 @@ Janarym/
 ## Жұмыс принципі
 
 1. Қосымша ашылғанда камера фон ретінде көрсетіледі
-2. Пайдаланушы Gemini батырмасын бір рет басып, жазуды бастайды
-3. Екінші рет басқанда аудио Gemini Live сессиясына жіберіледі
-4. Gemini аудио жауап берсе, ол тікелей ойнатылады
-5. Егер тек мәтін келсе, жауап AVSpeechSynthesizer арқылы айтылады
-6. Жауап аяқталғанда ассистент қайтадан күту режиміне өтеді
+2. Пайдаланушы дауыс батырмасын бір рет басып, жазуды бастайды
+3. Батырманы жібергеннен кейін аудио мен соңғы камера кадры OpenAI proxy-ге жіберіледі
+4. Proxy алдымен STT, содан кейін vision-aware answer, соңында TTS орындайды
+5. Қосымша экранға транскрипт пен жауапты көрсетеді, содан кейін дыбысты ойнайды
+6. Жүйелік фразалар ғана AVSpeechSynthesizer арқылы айтылады
 
 ## iOS шектеулері
 
-- Gemini Live үшін тұрақты интернет байланысы керек
+- OpenAI proxy үшін тұрақты интернет байланысы керек
 - Симуляторда камера мен микрофон толық жұмыс істемейді — нағыз құрылғыда тестілеңіз

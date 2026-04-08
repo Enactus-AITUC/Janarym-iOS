@@ -22,8 +22,6 @@
 	<string>Навигация режимінде орналасуыңызды анықтап, жақын жерлер мен маршрут көрсету үшін керек</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Микрофон Janarym ассистентіне керек</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Дауыс сұрағын мәтінге айналдыру үшін керек</string>
 	<key>NSMotionUsageDescription</key>
 	<string>VR режимде гироскоп Janarym-ға қажет</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

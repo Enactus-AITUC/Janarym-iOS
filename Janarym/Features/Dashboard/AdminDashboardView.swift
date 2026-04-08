@@ -7,6 +7,7 @@ struct AdminDashboardView: View {
 
     @EnvironmentObject private var authService: AuthService
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     @State private var selectedTab: DashTab = .applications
     @State private var applications: [Application] = []
@@ -31,7 +32,7 @@ struct AdminDashboardView: View {
         }
     }
 
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    private var kk: Bool { onboarding.currentLanguage == .kazakh }
 
     var body: some View {
         NavigationStack {
@@ -538,39 +539,6 @@ struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)
-    }
-}
-
-// MARK: - Extensions
-
-extension ApplicationStatus {
-    var label: String {
-        let kk = OnboardingStore.shared.profile.language == .kazakh
-        switch self {
-        case .pending:  return kk ? "Күтуде"       : "Ожидание"
-        case .approved: return kk ? "Бекітілді"    : "Одобрено"
-        case .rejected: return kk ? "Қабылданбады" : "Отклонено"
-        }
-    }
-    var color: Color {
-        switch self {
-        case .pending:  return .orange
-        case .approved: return .green
-        case .rejected: return .red
-        }
-    }
-}
-
-extension UserRole {
-    var label: String {
-        let kk = OnboardingStore.shared.profile.language == .kazakh
-        switch self {
-        case .developer: return "Dev"
-        case .admin:     return kk ? "Әкімші"  : "Админ"
-        case .mentor:    return "Ментор"
-        case .parent:    return kk ? "Ата-ана" : "Родитель"
-        case .member:    return kk ? "Мүше"    : "Участник"
-        }
     }
 }
 

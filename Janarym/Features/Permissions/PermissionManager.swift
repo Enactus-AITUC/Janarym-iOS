@@ -1,12 +1,10 @@
 import AVFoundation
-import Speech
 import SwiftUI
 
 final class PermissionManager: ObservableObject {
 
     @Published var cameraGranted = false
     @Published var microphoneGranted = false
-    @Published var speechRecognitionGranted = false
     @Published var allGranted = false
 
     private func updateAllGranted() {
@@ -19,15 +17,12 @@ final class PermissionManager: ObservableObject {
     func checkAll() {
         cameraGranted = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
         microphoneGranted = AVAudioSession.sharedInstance().recordPermission == .granted
-        speechRecognitionGranted = SFSpeechRecognizer.authorizationStatus() == .authorized
         updateAllGranted()
     }
 
     func requestAll() {
         requestCamera { [weak self] in
-            self?.requestMicrophone {
-                self?.requestSpeechRecognition { }
-            }
+            self?.requestMicrophone { }
         }
     }
 
@@ -78,28 +73,6 @@ final class PermissionManager: ObservableObject {
             DispatchQueue.main.async {
                 self.microphoneGranted = false
                 self.updateAllGranted()
-                completion()
-            }
-        }
-    }
-
-    private func requestSpeechRecognition(completion: @escaping () -> Void) {
-        switch SFSpeechRecognizer.authorizationStatus() {
-        case .authorized:
-            DispatchQueue.main.async {
-                self.speechRecognitionGranted = true
-                completion()
-            }
-        case .notDetermined:
-            SFSpeechRecognizer.requestAuthorization { [weak self] status in
-                DispatchQueue.main.async {
-                    self?.speechRecognitionGranted = status == .authorized
-                    completion()
-                }
-            }
-        default:
-            DispatchQueue.main.async {
-                self.speechRecognitionGranted = false
                 completion()
             }
         }

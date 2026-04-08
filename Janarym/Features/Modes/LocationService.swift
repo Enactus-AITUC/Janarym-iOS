@@ -116,7 +116,7 @@ final class LocationService: NSObject, ObservableObject {
         return lines.joined(separator: "\n")
     }
 
-    // MARK: - Location context for Gemini
+    // MARK: - Location context for voice assistant
 
     var locationContext: String {
         guard let loc = location else { return "" }

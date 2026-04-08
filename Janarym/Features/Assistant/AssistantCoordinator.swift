@@ -9,8 +9,8 @@ final class AssistantCoordinator: ObservableObject {
     // MARK: - Published state
 
     @Published var mode: AssistantMode = .idle
-    @Published var lastTranscription: String = ""
-    @Published var lastResponse: String = ""
+    @Published var liveTranscript: String = ""
+    @Published var liveResponseText: String = ""
     @Published var errorMessage: String?
 
     @Published var activeMode: AppMode = .general {
@@ -22,8 +22,9 @@ final class AssistantCoordinator: ObservableObject {
     let cameraService    = CameraService()
     let permissionManager = PermissionManager()
     let locationService  = LocationService()
-    let geminiService    = GeminiLiveService()
+    let realtimeService  = OpenAIRealtimeService()
     private(set) lazy var ttsService = SpeechSynthesizerService()
+    private let onboarding = OnboardingStore.shared
 
     // MARK: - Private
 
@@ -33,7 +34,10 @@ final class AssistantCoordinator: ObservableObject {
 
     // MARK: - Init
 
-    init() {}
+    init() {
+        realtimeService.activeMode = activeMode
+        observeLanguageChanges()
+    }
 
     // MARK: - Lifecycle
 
@@ -74,7 +78,7 @@ final class AssistantCoordinator: ObservableObject {
         isMainViewVisible = false
         ttsService.stop()
         cameraService.stop()
-        geminiService.disconnect()
+        realtimeService.disconnect()
         SOSManager.shared.stopMonitoring()
         UserPresenceService.shared.stop()
     }
@@ -85,16 +89,16 @@ final class AssistantCoordinator: ObservableObject {
         ttsService.stop()
         mode = .recording
         let frameJPEG = cameraService.captureCurrentFrameJPEG(maxEdge: 1024)
-        geminiService.startPTT(frameJPEG: frameJPEG)
+        realtimeService.startPTT(frameJPEG: frameJPEG)
     }
 
     func stopPTT() {
         mode = .processing
-        geminiService.stopPTTAndSend(cameraService: cameraService)
+        let frameJPEG = cameraService.captureCurrentFrameJPEG(maxEdge: 1024)
+        realtimeService.stopPTTAndRespond(frameJPEG: frameJPEG)
 
-        // 10 секунд ішінде жауап болмаса — idle-ге қайту
         Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            try? await Task.sleep(nanoseconds: 15_000_000_000)
             guard let self, self.mode == .processing else { return }
             self.mode = .idle
         }
@@ -142,6 +146,7 @@ final class AssistantCoordinator: ObservableObject {
     // MARK: - Mode change
 
     private func handleModeChange(from old: AppMode, to new: AppMode) {
+        realtimeService.activeMode = new
         if new == .navigation {
             locationService.start()
         } else if old == .navigation {
@@ -162,32 +167,45 @@ final class AssistantCoordinator: ObservableObject {
         }
 
         guard permissionManager.allGranted else { return }
+        realtimeService.connect()
         mode = .idle
+    }
+
+    private func observeLanguageChanges() {
+        onboarding.$profile
+            .map(\.language)
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.ttsService.stop()
+                self.liveTranscript = ""
+                self.liveResponseText = ""
+                self.errorMessage = nil
+                self.mode = .idle
+                self.realtimeService.handleLanguageChange()
+            }
+            .store(in: &cancellables)
     }
 
     private func ensureCallbacks() {
         guard !callbacksReady else { return }
         callbacksReady = true
 
-        // onResponse — тек мәтін жауап болғанда (аудио болмаса fallback TTS)
-        // Аудио жауап GeminiLiveService-те тікелей ойнатылады
-        geminiService.onResponse = { [weak self] text in
+        realtimeService.onResponseText = { [weak self] text in
             guard let self else { return }
-            self.lastResponse = text
-            self.mode = .speaking
-            let lang = OnboardingStore.shared.profile.language == .kazakh
-                ? DetectedLanguage.kazakh : .russian
-            self.ttsService.speak(text, language: lang)
+            self.liveResponseText = text
         }
 
-        geminiService.onTranscription = { [weak self] text in
-            self?.lastTranscription = text
+        realtimeService.onTranscription = { [weak self] text in
+            self?.liveTranscript = text
         }
 
-        geminiService.onFailure = { [weak self] message in
+        realtimeService.onFailure = { [weak self] message in
             guard let self else { return }
             self.errorMessage = message
-            self.lastResponse = message
+            self.liveResponseText = message
             self.mode = .error
         }
 
@@ -195,12 +213,11 @@ final class AssistantCoordinator: ObservableObject {
             self?.mode = .idle
         }
 
-        // GeminiLiveService.state → AssistantMode синхрондау
-        geminiService.$state
+        realtimeService.$state
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] geminiState in
+            .sink { [weak self] realtimeState in
                 guard let self else { return }
-                switch geminiState {
+                switch realtimeState {
                 case .idle:
                     if self.mode == .processing || self.mode == .recording || self.mode == .speaking {
                         self.mode = .idle

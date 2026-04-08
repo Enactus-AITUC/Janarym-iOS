@@ -8,6 +8,7 @@ struct CreateUserView: View {
 
     @EnvironmentObject private var authService: AuthService
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var onboarding = OnboardingStore.shared
 
     var onCreated: (() -> Void)?
 
@@ -19,7 +20,8 @@ struct CreateUserView: View {
     @State private var errorMsg: String?
     @State private var isSuccess = false
 
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    private var kk: Bool { onboarding.currentLanguage == .kazakh }
+    private var language: UserProfile.Language { onboarding.currentLanguage }
 
     var body: some View {
         NavigationStack {
@@ -32,11 +34,11 @@ struct CreateUserView: View {
                     formView
                 }
             }
-            .navigationTitle(kk ? "Пайдаланушы жасау" : "Создать пользователя")
+            .navigationTitle(AppText.pick("Пайдаланушы жасау", "Создать пользователя", language: language))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(kk ? "Жабу" : "Закрыть") { dismiss() }
+                    Button(AppText.pick("Жабу", "Закрыть", language: language)) { dismiss() }
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
@@ -56,7 +58,7 @@ struct CreateUserView: View {
                     Image(systemName: "person.badge.plus.fill")
                         .font(.system(size: 36))
                         .foregroundStyle(.green)
-                    Text(kk ? "Жаңа пайдаланушы" : "Новый пользователь")
+                    Text(AppText.pick("Жаңа пайдаланушы", "Новый пользователь", language: language))
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.white)
                 }
@@ -64,13 +66,13 @@ struct CreateUserView: View {
 
                 // Fields
                 VStack(spacing: 12) {
-                    JAuthField(icon: "person.fill", placeholder: kk ? "Аты-жөні" : "Имя Фамилия", text: $name)
+                    JAuthField(icon: "person.fill", placeholder: AppText.pick("Аты-жөні", "Имя и фамилия", language: language), text: $name)
                     JAuthField(icon: "envelope.fill", placeholder: "Email", text: $email, keyboardType: .emailAddress)
-                    JAuthField(icon: "lock.fill", placeholder: kk ? "Құпия сөз (6+ символ)" : "Пароль (6+ символов)", text: $password, isSecure: true)
+                    JAuthField(icon: "lock.fill", placeholder: AppText.pick("Құпия сөз (6+ символ)", "Пароль (6+ символов)", language: language), text: $password, isSecure: true)
 
                     // Role picker
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(kk ? "РӨЛІ" : "РОЛЬ")
+                        Text(AppText.pick("РӨЛІ", "РОЛЬ", language: language))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.4))
                             .tracking(1)
@@ -118,7 +120,7 @@ struct CreateUserView: View {
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "plus.circle.fill")
-                                Text(kk ? "Жасау" : "Создать")
+                                Text(AppText.pick("Жасау", "Создать", language: language))
                                     .fontWeight(.bold)
                             }
                             .foregroundStyle(.black)
@@ -152,7 +154,7 @@ struct CreateUserView: View {
                     .foregroundStyle(.green)
             }
 
-            Text(kk ? "Пайдаланушы жасалды!" : "Пользователь создан!")
+            Text(AppText.pick("Пайдаланушы жасалды!", "Пользователь создан!", language: language))
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.white)
 
@@ -164,7 +166,7 @@ struct CreateUserView: View {
                 onCreated?()
                 dismiss()
             } label: {
-                Text(kk ? "Жарайды" : "Готово")
+                Text(AppText.pick("Жарайды", "Готово", language: language))
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -262,13 +264,7 @@ private struct RoleCard: View {
     }
 
     private var localizedName: String {
-        switch role {
-        case .developer: return "Dev"
-        case .admin:     return kk ? "Әкімші" : "Админ"
-        case .mentor:    return kk ? "Ментор" : "Ментор"
-        case .parent:    return kk ? "Ата-ана" : "Родитель"
-        case .member:    return kk ? "Мүше" : "Участник"
-        }
+        role.label
     }
 
     var body: some View {

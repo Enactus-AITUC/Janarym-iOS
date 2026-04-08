@@ -8,9 +8,10 @@ struct PendingApprovalView: View {
     let status: ApplicationStatus?
     var rejectionReason: String? = nil
     @EnvironmentObject private var authService: AuthService
+    @ObservedObject private var onboarding = OnboardingStore.shared
     @State private var isChecking = false
 
-    private var kk: Bool { OnboardingStore.shared.profile.language == .kazakh }
+    private var kk: Bool { onboarding.currentLanguage == .kazakh }
 
     var body: some View {
         ZStack {
@@ -57,7 +58,7 @@ struct PendingApprovalView: View {
                             Image(systemName: "text.bubble.fill")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.red.opacity(0.8))
-                            Text(kk ? "Себеп:" : "Причина:")
+                            Text(AppText.pick("Себеп:", "Причина:", language: onboarding.currentLanguage))
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.red.opacity(0.8))
                         }
@@ -111,7 +112,7 @@ struct PendingApprovalView: View {
                                 ProgressView().tint(.black)
                             } else {
                                 Image(systemName: "arrow.clockwise")
-                                Text(kk ? "Қайта тексеру" : "Проверить снова")
+                                Text(AppText.pick("Қайта тексеру", "Проверить снова", language: onboarding.currentLanguage))
                             }
                         }
                         .font(.system(size: 16, weight: .bold))
@@ -128,7 +129,7 @@ struct PendingApprovalView: View {
                     Button {
                         authService.signOut()
                     } label: {
-                        Text(kk ? "Шығу" : "Выйти")
+                        Text(AppText.pick("Шығу", "Выйти", language: onboarding.currentLanguage))
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(.white.opacity(0.5))
                     }
@@ -179,9 +180,9 @@ struct PendingApprovalView: View {
 
     private var statusTitle: String {
         switch status {
-        case .pending, .none: return kk ? "Өтінішіңіз қаралуда"   : "Заявка на рассмотрении"
-        case .approved:       return kk ? "Мақұлданды!"             : "Одобрено!"
-        case .rejected:       return kk ? "Өтініш қабылданбады"     : "Заявка отклонена"
+        case .pending, .none: return AppText.pick("Өтінішіңіз қаралуда", "Заявка на рассмотрении", language: onboarding.currentLanguage)
+        case .approved:       return AppText.pick("Мақұлданды!", "Одобрено!", language: onboarding.currentLanguage)
+        case .rejected:       return AppText.pick("Өтініш қабылданбады", "Заявка отклонена", language: onboarding.currentLanguage)
         }
     }
 

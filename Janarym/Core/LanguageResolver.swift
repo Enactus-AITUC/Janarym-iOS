@@ -21,6 +21,18 @@ enum LanguageResolver {
         "Ә", "І", "Ң", "Ғ", "Ү", "Ұ", "Қ", "Ө", "Һ"
     ]
 
+    private static let kazakhTokens: Set<String> = [
+        "сәлем", "рахмет", "калай", "қалай", "кайда", "қайда", "не", "неге", "қашан",
+        "мен", "маған", "маган", "сіз", "сен", "жоқ", "ия", "иә", "алдында", "алдымда",
+        "көріп", "көмек", "жәрдем", "қайталап", "айтшы", "берші", "тұр", "болсын"
+    ]
+
+    private static let russianTokens: Set<String> = [
+        "привет", "спасибо", "пожалуйста", "что", "как", "где", "когда", "почему",
+        "мне", "меня", "передо", "смотри", "посмотри", "помоги", "повтори", "скажи",
+        "это", "есть", "нет", "да", "впереди"
+    ]
+
     private static let cyrillicRange = UnicodeScalar("А")...UnicodeScalar("я")
 
     static func resolve(text: String, whisperLanguage: String? = nil) -> DetectedLanguage {
@@ -34,6 +46,21 @@ enum LanguageResolver {
         // 2. Check for Kazakh-specific characters
         if text.contains(where: { kazakhSpecificChars.contains($0) }) {
             return .kazakh
+        }
+
+        let normalized = text
+            .lowercased()
+            .replacingOccurrences(of: "[^\\p{L}\\p{N}\\s]", with: " ", options: .regularExpression)
+        let tokens = Set(normalized.split(whereSeparator: \.isWhitespace).map(String.init))
+        let kazakhScore = tokens.intersection(kazakhTokens).count
+        let russianScore = tokens.intersection(russianTokens).count
+
+        if kazakhScore > russianScore, kazakhScore > 0 {
+            return .kazakh
+        }
+
+        if russianScore > kazakhScore, russianScore > 0 {
+            return .russian
         }
 
         // 3. Check for Cyrillic → Russian

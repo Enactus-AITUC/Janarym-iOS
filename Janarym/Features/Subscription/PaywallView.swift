@@ -3,10 +3,12 @@ import StoreKit
 
 struct PaywallView: View {
     @ObservedObject private var sub = SubscriptionManager.shared
+    @ObservedObject private var onboarding = OnboardingStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: SelectedPlan = .premium
 
-    private let kk = OnboardingStore.shared.profile.language == .kazakh
+    private var kk: Bool { onboarding.currentLanguage == .kazakh }
+    private var language: UserProfile.Language { onboarding.currentLanguage }
 
     enum SelectedPlan {
         case premium, vip
@@ -28,11 +30,11 @@ struct PaywallView: View {
                             )
                             .padding(.top, 48)
 
-                        Text(kk ? "Жанарым жазылымдар" : "Подписки Жанарым")
+                        Text(AppText.pick("Жанарым жазылымдар", "Подписки Жанарым", language: language))
                             .font(.system(size: 26, weight: .bold))
                             .foregroundStyle(.white)
 
-                        Text(kk ? "Өзіңізге сай тарифті таңдаңыз" : "Выберите подходящий тариф")
+                        Text(AppText.pick("Өзіңізге сай тарифті таңдаңыз", "Выберите подходящий тариф", language: language))
                             .font(.system(size: 15))
                             .foregroundStyle(.white.opacity(0.6))
                     }
@@ -44,8 +46,8 @@ struct PaywallView: View {
                             Image(systemName: sub.isVIP ? "crown.fill" : "star.fill")
                                 .font(.system(size: 12))
                             Text(sub.isVIP
-                                 ? (kk ? "VIP белсенді" : "VIP активен")
-                                 : (kk ? "Premium белсенді" : "Premium активен"))
+                                 ? AppText.pick("VIP белсенді", "VIP активен", language: language)
+                                 : AppText.pick("Premium белсенді", "Premium активен", language: language))
                                 .font(.system(size: 13, weight: .semibold))
                         }
                         .foregroundStyle(.black)
@@ -63,7 +65,7 @@ struct PaywallView: View {
                             isSelected: selectedPlan == .premium,
                             title: "Premium",
                             price: "5 000 ₸",
-                            period: kk ? "/ ай" : "/ месяц",
+                            period: AppText.pick("/ ай", "/ месяц", language: language),
                             color: .green,
                             icon: "star.fill",
                             features: kk ? [
@@ -86,22 +88,22 @@ struct PaywallView: View {
                             isSelected: selectedPlan == .vip,
                             title: "VIP",
                             price: "15 000 ₸",
-                            period: kk ? "/ ай" : "/ месяц",
+                            period: AppText.pick("/ ай", "/ месяц", language: language),
                             color: .yellow,
                             icon: "crown.fill",
-                            badge: kk ? "Толық мүмкіндік" : "Полный доступ",
+                            badge: AppText.pick("Толық мүмкіндік", "Полный доступ", language: language),
                             features: kk ? [
                                 "Шексіз сұрақтар",
                                 "Жоғары сапалы AI көру (512px)",
                                 "Барлық режимдер қол жетімді",
-                                "Gemini Live дауыстық ассистент",
+                                "Жанды дауыстық ассистент",
                                 "Навигация және Қауіпсіздік режимі",
                                 "Жоғары сапалы сурет талдауы"
                             ] : [
                                 "Безлимитные запросы",
                                 "Высококачественное AI-зрение (512px)",
                                 "Все режимы доступны",
-                                "Голосовой ассистент Gemini Live",
+                                "Живой голосовой ассистент",
                                 "Навигация и режим безопасности",
                                 "Высокое качество анализа изображений"
                             ]
@@ -113,11 +115,10 @@ struct PaywallView: View {
 
                     // MARK: Free tier info
                     VStack(spacing: 4) {
-                        Text(kk ? "Тегін тарифте:" : "В бесплатном тарифе:")
+                        Text(AppText.pick("Тегін тарифте:", "В бесплатном тарифе:", language: language))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.4))
-                        Text(kk ? "Күніне 5 сұрақ, тек мәтін, камерасыз"
-                             : "5 запросов в день, только текст, без камеры")
+                        Text(AppText.pick("Күніне 5 сұрақ, тек мәтін, камерасыз", "5 запросов в день, только текст, без камеры", language: language))
                             .font(.system(size: 12))
                             .foregroundStyle(.white.opacity(0.3))
                     }
@@ -130,7 +131,7 @@ struct PaywallView: View {
                         if !productAvailable && !sub.isLoading {
                             HStack(spacing: 6) {
                                 ProgressView().tint(.orange).scaleEffect(0.8)
-                                Text(kk ? "Жүктелуде..." : "Загрузка...")
+                                Text(AppText.pick("Жүктелуде...", "Загрузка...", language: language))
                                     .font(.system(size: 13))
                                     .foregroundStyle(.orange)
                             }
@@ -154,12 +155,12 @@ struct PaywallView: View {
                             } label: {
                                 VStack(spacing: 2) {
                                     Text(selectedPlan == .vip
-                                         ? (kk ? "VIP алу" : "Получить VIP")
-                                         : (kk ? "Premium алу" : "Получить Premium"))
+                                         ? AppText.pick("VIP алу", "Получить VIP", language: language)
+                                         : AppText.pick("Premium алу", "Получить Premium", language: language))
                                         .font(.system(size: 17, weight: .bold))
                                     Text(selectedPlan == .vip ? "15 000 ₸" : "5 000 ₸")
                                         .font(.system(size: 13))
-                                        + Text(kk ? " / ай" : " / месяц")
+                                        + Text(AppText.pick(" / ай", " / месяц", language: language))
                                         .font(.system(size: 13))
                                 }
                                 .foregroundStyle(.black)
@@ -180,15 +181,13 @@ struct PaywallView: View {
                             Button {
                                 Task { await sub.restorePurchases() }
                             } label: {
-                                Text(kk ? "Сатып алуды қалпына келтіру" : "Восстановить покупку")
+                                Text(AppText.pick("Сатып алуды қалпына келтіру", "Восстановить покупку", language: language))
                                     .font(.system(size: 13))
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                         }
 
-                        Text(kk
-                             ? "Жазылымды кез келген уақытта App Store-да болдырмауға болады."
-                             : "Отменить подписку можно в любое время через App Store.")
+                        Text(AppText.pick("Жазылымды кез келген уақытта App Store-да болдырмауға болады.", "Отменить подписку можно в любое время через App Store.", language: language))
                             .font(.system(size: 11))
                             .foregroundStyle(.white.opacity(0.3))
                             .multilineTextAlignment(.center)
