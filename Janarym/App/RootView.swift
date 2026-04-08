@@ -260,6 +260,7 @@ struct JanarymMainView: View {
     @State private var showDashboard = false
     @State private var showLogoutConfirm = false
     @State private var showTierInfo = false
+    @State private var showMedCard = false
     @ObservedObject private var sub = SubscriptionManager.shared
     @ObservedObject private var onboarding = OnboardingStore.shared
     @EnvironmentObject private var authService: AuthService
@@ -399,28 +400,47 @@ struct JanarymMainView: View {
                 // Bottom — PTT button + modes menu + button
                 // GeometryReader geo пайдаланамыз — landscape-да overflow болмасын
                 HStack(alignment: .bottom) {
-                    // PTT (Push-to-Talk) батырмасы
-                    GeminiPTTButton(
-                        geminiState: geminiService.state,
-                        isPressing: isPTTPressed
-                    )
+                    // Left column: med card button + PTT
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Medical card shortcut
+                        Button { showMedCard = true } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.black.opacity(0.55))
+                                    .frame(width: 40, height: 40)
+                                    .overlay(Circle().strokeBorder(Color.red.opacity(0.55), lineWidth: 1.5))
+                                Image(systemName: "cross.case.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Color.red.opacity(0.90))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(kk ? "Медициналық карта" : "Медкарта")
+                        .accessibilityHint(kk ? "Медициналық ақпаратты ашу" : "Открыть медицинскую карту")
+
+                        // PTT (Push-to-Talk) батырмасы
+                        GeminiPTTButton(
+                            geminiState: geminiService.state,
+                            isPressing: isPTTPressed
+                        )
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { _ in
+                                    if !isPTTPressed {
+                                        isPTTPressed = true
+                                        coordinator.startPTT()
+                                    }
+                                }
+                                .onEnded { _ in
+                                    if isPTTPressed {
+                                        isPTTPressed = false
+                                        coordinator.stopPTT()
+                                    }
+                                }
+                        )
+                    }
                     .padding(.leading, 24)
                     .padding(.bottom, 16)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if !isPTTPressed {
-                                    isPTTPressed = true
-                                    coordinator.startPTT()
-                                }
-                            }
-                            .onEnded { _ in
-                                if isPTTPressed {
-                                    isPTTPressed = false
-                                    coordinator.stopPTT()
-                                }
-                            }
-                    )
 
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
@@ -464,6 +484,9 @@ struct JanarymMainView: View {
         }
         .sheet(isPresented: $showTierInfo) {
             TierInfoSheet(tier: sub.tier)
+        }
+        .sheet(isPresented: $showMedCard) {
+            MedCardScreen()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openPaywall)) { _ in
             showPaywall = true
