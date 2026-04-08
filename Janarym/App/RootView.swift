@@ -293,6 +293,7 @@ struct JanarymMainView: View {
     @State private var showLogoutConfirm = false
     @State private var showTierInfo = false
     @State private var showCameraOverlay = false  // 1s delay — жылдам старт flash жоқ
+    @State private var showMedCard = false
     @ObservedObject private var sub = SubscriptionManager.shared
     @ObservedObject private var onboarding = OnboardingStore.shared
     @EnvironmentObject private var authService: AuthService
@@ -448,13 +449,29 @@ struct JanarymMainView: View {
 
                 Spacer()
 
-                // Bottom — PTT button + modes menu + button
+                // Bottom — PTT button + MedCard + modes menu + button
                 // GeometryReader geo пайдаланамыз — landscape-да overflow болмасын
                 HStack(alignment: .bottom) {
-                    Button(action: toggleVoiceCapture) {
-                        LivePTTButton(realtimeState: realtimeService.state)
+                    VStack(alignment: .leading, spacing: 10) {
+                        // MedCard button — PTT үстінде
+                        Button { showMedCard = true } label: {
+                            Image(systemName: "cross.fill")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.red)
+                                .frame(width: 44, height: 44)
+                                .background(Color.white.opacity(0.15))
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(Color.red.opacity(0.4), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(kk ? "Медициналық карта" : "Медкарта")
+
+                        // PTT button
+                        Button(action: toggleVoiceCapture) {
+                            LivePTTButton(realtimeState: realtimeService.state)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                     .padding(.leading, 24)
                     .padding(.bottom, 16)
 
@@ -495,6 +512,9 @@ struct JanarymMainView: View {
             }
         }
         } // GeometryReader
+        .sheet(isPresented: $showMedCard) {
+            MedCardScreen()
+        }
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
