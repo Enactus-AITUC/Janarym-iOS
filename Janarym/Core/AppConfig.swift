@@ -2,36 +2,39 @@ import Foundation
 
 enum AppConfig {
 
+    private static func print(_ items: Any...) {}
+
     // MARK: - API Keys
 
-    static var openAIAPIKey: String {
-        secret(for: "OPENAI_API_KEY")
+    static var geminiAPIKey: String {
+        secret(for: "GEMINI_API_KEY")
     }
 
     static var yandexMapKitAPIKey: String {
         secret(for: "YANDEX_MAPKIT_API_KEY")
     }
 
-    // MARK: - OpenAI
+    // MARK: - Gemini
 
-    static let openAIBaseURL = "https://api.openai.com"
-    static let whisperModel = "whisper-1"
-    static let chatModel = "gpt-4o-mini"
+    static let geminiBaseURL = "https://generativelanguage.googleapis.com"
+    static let geminiChatModel = "gemini-2.5-flash"
+    static let geminiLiveModel = "models/gemini-3.1-flash-live-preview"
 
     static let systemPrompt = """
-    Сен — Janarym, дауыстық AI-ассистентсің. \
-    Қысқа, нақты және пайдалы жауап бер. \
-    Пайдаланушы қай тілде сөйлесе, сол тілде жауап бер: \
-    қазақша, орысша немесе ағылшынша. \
-    Жауабыңды дауыстап оқуға ыңғайлы жаса: \
-    markdown, тізімдер немесе тым ұзақ мәтін қолданба, \
-    егер пайдаланушы өзі толық жауап сұрамаса.
+    You are Janarym, a live voice assistant for a phone camera. \
+    Always answer in the same language the user speaks. \
+    Prioritize Kazakh and Russian speech recognition and reply naturally in Kazakh or Russian when those languages are used. \
+    If the user asks what is ahead, what is in front, what they are looking at, or asks about the current surroundings, use the current camera frame as the primary source of truth. \
+    In those vision-grounded replies, do not give abstract advice, guesses, or motivational phrases. \
+    Mention only 2 to 5 concrete visible objects or obstacles that are actually in front of the user. \
+    Do not describe colors, shapes, style, or unnecessary details. \
+    If the frame is unclear, say briefly that the frame is unclear instead of inventing details. \
+    Keep every answer short, direct, and easy to read aloud. \
+    Avoid markdown, lists, and long explanations unless the user explicitly asks for more detail.
     """
 
-    static let maxConversationMessages = 6  // 10→6: token үнемдеу
     static let maxRecordingDuration: TimeInterval = 20
-    static let silenceThreshold: Float = -40.0
-    static let silenceDuration: TimeInterval = 1.2
+    static let presenceMonitoringEnabled = false
 
     // MARK: - Subscription
 

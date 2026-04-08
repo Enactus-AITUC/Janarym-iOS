@@ -8,8 +8,6 @@ enum AppMode: String, CaseIterable, Identifiable {
     case security   = "Қауіпсіздік"
     case shopping   = "Сауда"
     case reading    = "Мәтін оқу"
-    case agent      = "Агент"      // Үздіксіз нақты уақыт сипаттау (VIP)
-
     var id: String { rawValue }
 
     var icon: String {
@@ -19,7 +17,6 @@ enum AppMode: String, CaseIterable, Identifiable {
         case .security:   return "shield.fill"
         case .shopping:   return "cart.fill"
         case .reading:    return "doc.text.fill"
-        case .agent:      return "eye.fill"
         }
     }
 
@@ -37,7 +34,6 @@ enum AppMode: String, CaseIterable, Identifiable {
         case .security:   return "antiscam"
         case .shopping:   return "shopping"
         case .reading:    return "reading"
-        case .agent:      return "agent"
         }
     }
 
@@ -49,7 +45,6 @@ enum AppMode: String, CaseIterable, Identifiable {
         case .security:   return kk ? "Қауіпсіздік" : "Безопасность"
         case .shopping:   return kk ? "Сауда"       : "Покупки"
         case .reading:    return kk ? "Мәтін оқу"  : "Чтение"
-        case .agent:      return kk ? "Агент"       : "Агент"
         }
     }
 
@@ -60,7 +55,6 @@ enum AppMode: String, CaseIterable, Identifiable {
         case .security:   return 190
         case .shopping:   return 155
         case .reading:    return 170
-        case .agent:      return 155
         }
     }
 }
@@ -74,6 +68,8 @@ struct RootView: View {
     @EnvironmentObject private var authService: AuthService
     @Environment(\.scenePhase) private var scenePhase
     @State private var permissionsReady = false
+
+    private func print(_ items: Any...) {}
 
     var body: some View {
         ZStack {
@@ -165,9 +161,6 @@ struct RootView: View {
         .onReceive(coordinator.permissionManager.$microphoneGranted) { _ in
             recheckAndNavigate()
         }
-        .onReceive(coordinator.permissionManager.$speechGranted) { _ in
-            recheckAndNavigate()
-        }
         // Settings-тен қайтқанда рұқсаттарды қайта тексеру
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active, !permissionsReady {
@@ -204,7 +197,7 @@ struct RootView: View {
     /// Жеке рұқсат @Published өзгергенде — бәрі берілсе navigate ету
     private func recheckAndNavigate() {
         let pm = coordinator.permissionManager
-        if pm.cameraGranted, pm.microphoneGranted, pm.speechGranted {
+        if pm.cameraGranted, pm.microphoneGranted {
             goToMainScreen()
         }
     }
@@ -260,8 +253,8 @@ struct JanarymMainView: View {
     @ObservedObject private var cameraService: CameraService
 
     @State private var isModesOpen = false
-    @State private var isVRMode = false
     @State private var showPaywall = false
+    @ObservedObject private var geminiService: GeminiLiveService
     @State private var showDashboard = false
     @State private var showLogoutConfirm = false
     @State private var showTierInfo = false
@@ -274,6 +267,7 @@ struct JanarymMainView: View {
     init(coordinator: AssistantCoordinator) {
         self.coordinator = coordinator
         _cameraService = ObservedObject(wrappedValue: coordinator.cameraService)
+        _geminiService = ObservedObject(wrappedValue: coordinator.geminiService)
     }
 
     var body: some View {
@@ -282,15 +276,10 @@ struct JanarymMainView: View {
             // Камера preview — толық экран, safe area-ны елемейді
             CameraPreviewView(
                 session: cameraService.session,
-                isActive: !isVRMode
+                isActive: true
             )
             .ignoresSafeArea(.all)
             .allowsHitTesting(false)
-
-            if isVRMode {
-                Color.black
-                    .ignoresSafeArea(.all)
-            }
 
             if !cameraService.isRunning || cameraService.error != nil {
                 CameraStartupOverlay(error: cameraService.error)
@@ -368,11 +357,53 @@ struct JanarymMainView: View {
                 .padding(.horizontal, 16)
                 // VStack safe area сақтайды — Dynamic Island-тан автоматты кейін тұрады
 
+                // Transcription + Response overlay
+                if !coordinator.lastTranscription.isEmpty || !coordinator.lastResponse.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if !coordinator.lastTranscription.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                Text(coordinator.lastTranscription)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(3)
+                            }
+                        }
+                        if !coordinator.lastResponse.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color.green.opacity(0.8))
+                                Text(coordinator.lastResponse)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .lineLimit(4)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal, 16)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.easeInOut(duration: 0.3), value: coordinator.lastTranscription)
+                }
+
                 Spacer()
 
-                // Bottom — modes menu + button
+                // Bottom — PTT button + modes menu + button
                 // GeometryReader geo пайдаланамыз — landscape-да overflow болмасын
                 HStack(alignment: .bottom) {
+                    Button(action: toggleVoiceCapture) {
+                        GeminiPTTButton(geminiState: geminiService.state)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 24)
+                    .padding(.bottom, 16)
+
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
                         if isModesOpen {
@@ -388,10 +419,6 @@ struct JanarymMainView: View {
                                         }
                                         coordinator.activeMode = mode
                                         closeMenu()
-                                    },
-                                    onVRTap: {
-                                        isModesOpen = false
-                                        isVRMode = true
                                     }
                                 )
                                 .padding(.vertical, 4)
@@ -414,12 +441,6 @@ struct JanarymMainView: View {
             }
         }
         } // GeometryReader
-        .fullScreenCover(isPresented: $isVRMode) {
-            VRModeView(
-                session: cameraService.session,
-                isVRMode: $isVRMode
-            )
-        }
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
@@ -461,6 +482,17 @@ struct JanarymMainView: View {
     private func closeMenu() {
         withAnimation(.easeInOut(duration: 0.18)) {
             isModesOpen = false
+        }
+    }
+
+    private func toggleVoiceCapture() {
+        switch geminiService.state {
+        case .recording:
+            coordinator.stopPTT()
+        case .idle, .disconnected:
+            coordinator.startPTT()
+        default:
+            break
         }
     }
 }
@@ -561,13 +593,11 @@ struct JPulsingDot: View {
 
     private var dotColor: Color {
         switch assistantMode {
-        case .idle:         return Color(red: 0.2, green: 0.78, blue: 0.35)
-        case .wakeDetected: return Color(red: 0.98, green: 0.75, blue: 0.2)
-        case .recording:    return Color(red: 0.98, green: 0.45, blue: 0.1)
-        case .transcribing: return Color(red: 0.65, green: 0.45, blue: 0.95)
-        case .thinking:     return Color(red: 0.55, green: 0.36, blue: 0.97)
-        case .speaking:     return Color(red: 0.2, green: 0.78, blue: 0.55)
-        case .error:        return Color(red: 0.95, green: 0.3, blue: 0.3)
+        case .idle:       return Color(red: 0.2, green: 0.78, blue: 0.35)
+        case .recording:  return Color(red: 0.98, green: 0.45, blue: 0.1)
+        case .processing: return Color(red: 0.55, green: 0.36, blue: 0.97)
+        case .speaking:   return Color(red: 0.2, green: 0.78, blue: 0.55)
+        case .error:      return Color(red: 0.95, green: 0.3, blue: 0.3)
         }
     }
 
@@ -600,7 +630,6 @@ struct JPulsingDot: View {
 struct JModesMenu: View {
     let activeMode: AppMode
     let onModeTap: (AppMode) -> Void
-    let onVRTap: () -> Void
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
@@ -611,8 +640,6 @@ struct JModesMenu: View {
                     onTap: { onModeTap(mode) }
                 )
             }
-
-            JVRModePill(action: onVRTap)
         }
     }
 }
@@ -674,49 +701,6 @@ struct JModePill: View {
     }
 }
 
-struct JVRModePill: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "visionpro")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 20)
-
-                Text("VR режим")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
-                    .fixedSize()
-
-                Spacer(minLength: 0)
-
-                Text("NEW")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.blue.opacity(0.7)))
-            }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 15)
-            .frame(width: 165, alignment: .leading)
-            .background {
-                Capsule()
-                    .fill(Color.black.opacity(0.65))
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(Color.blue.opacity(0.45), lineWidth: 1)
-                    }
-            }
-            .shadow(color: .blue.opacity(0.12), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Modes Button (circle with 2x2 grid)
 
 struct JModesButton: View {
@@ -753,6 +737,51 @@ struct JModesButton: View {
         .buttonStyle(.plain)
         .scaleEffect(isOpen ? 1.05 : 1)
         .animation(.easeInOut(duration: 0.18), value: isOpen)
+    }
+}
+
+// MARK: - Gemini PTT Button
+
+struct GeminiPTTButton: View {
+    let geminiState: GeminiLiveState
+
+    private var bgColor: Color {
+        switch geminiState {
+        case .recording:   return Color(red: 0.95, green: 0.3, blue: 0.1)
+        case .processing:  return Color(red: 0.55, green: 0.36, blue: 0.97)
+        case .connecting:  return Color(red: 0.4, green: 0.4, blue: 0.6)
+        case .speaking:    return Color(red: 0.2, green: 0.78, blue: 0.55)
+        default:           return Color.black.opacity(0.65)
+        }
+    }
+
+    private var icon: String {
+        switch geminiState {
+        case .recording:  return "stop.fill"
+        case .processing: return "waveform"
+        case .speaking:   return "speaker.wave.2.fill"
+        case .connecting: return "bolt.horizontal.circle"
+        default:          return "mic.circle"
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(bgColor)
+                .overlay {
+                    Circle()
+                        .strokeBorder(.white.opacity(0.25), lineWidth: 1.5)
+                }
+                .shadow(color: bgColor.opacity(0.5), radius: geminiState == .recording ? 18 : 10, y: 4)
+
+            Image(systemName: icon)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 64, height: 64)
+        .scaleEffect(geminiState == .recording ? 1.12 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: geminiState)
     }
 }
 
@@ -843,20 +872,18 @@ struct TierInfoSheet: View {
             return kk ? [
                 ("infinity",             "Шексіз сұрақтар"),
                 ("camera.fill",          "Жоғары сапалы AI көру (512px)"),
-                ("square.grid.2x2.fill", "Барлық 5 режим қол жетімді"),
-                ("waveform",             "OpenAI nova премиум дауысы"),
-                ("eye.fill",             "Проактивті бақылау (SceneWatcher)"),
-                ("brain",                "Есте сақтау жүйесі"),
-                ("bubble.left.fill",     "Кеңейтілген контекст (10 хабар)"),
+                ("square.grid.2x2.fill", "Барлық режимдер қол жетімді"),
+                ("mic.fill",             "Gemini Live дауыстық ассистент"),
+                ("map.fill",             "Навигация режимі"),
+                ("shield.fill",          "Қауіпсіздік режимі"),
                 ("photo.fill",           "Жоғары сапалы сурет талдауы"),
             ] : [
                 ("infinity",             "Безлимитные запросы"),
                 ("camera.fill",          "Высококачественное AI-зрение (512px)"),
-                ("square.grid.2x2.fill", "Все 5 режимов доступны"),
-                ("waveform",             "Премиум голос OpenAI nova"),
-                ("eye.fill",             "Проактивный мониторинг (SceneWatcher)"),
-                ("brain",                "Система памяти"),
-                ("bubble.left.fill",     "Расширенный контекст (10 сообщений)"),
+                ("square.grid.2x2.fill", "Все режимы доступны"),
+                ("mic.fill",             "Голосовой ассистент Gemini Live"),
+                ("map.fill",             "Режим навигации"),
+                ("shield.fill",          "Режим безопасности"),
                 ("photo.fill",           "Высокое качество анализа изображений"),
             ]
         } else {
@@ -864,14 +891,14 @@ struct TierInfoSheet: View {
                 ("50.circle.fill",       "Күніне 50 сұрақ"),
                 ("camera.fill",          "Камера арқылы AI көру (384px)"),
                 ("square.grid.2x2.fill", "Жалпы + Оқу + Сауда режимдері"),
-                ("speaker.wave.2.fill",  "Тегін дауыс (AVSpeech)"),
-                ("bubble.left.fill",     "Орташа контекст (6 хабар)"),
+                ("mic.fill",             "Gemini Live дауыстық батырмасы"),
+                ("speaker.wave.2.fill",  "Дауыс синтезі"),
             ] : [
                 ("50.circle.fill",       "50 запросов в день"),
                 ("camera.fill",          "AI-зрение через камеру (384px)"),
                 ("square.grid.2x2.fill", "Общий + Чтение + Покупки режимы"),
-                ("speaker.wave.2.fill",  "Бесплатный голос (AVSpeech)"),
-                ("bubble.left.fill",     "Средний контекст (6 сообщений)"),
+                ("mic.fill",             "Кнопка Gemini Live"),
+                ("speaker.wave.2.fill",  "Синтез речи"),
             ]
         }
     }
@@ -880,14 +907,8 @@ struct TierInfoSheet: View {
         guard tier == .premium else { return [] }
         return kk ? [
             "Навигация және Қауіпсіздік режимі",
-            "OpenAI nova дауысы",
-            "SceneWatcher бақылауы",
-            "Есте сақтау жүйесі",
         ] : [
             "Навигация и режим безопасности",
-            "Голос OpenAI nova",
-            "Мониторинг SceneWatcher",
-            "Система памяти",
         ]
     }
 

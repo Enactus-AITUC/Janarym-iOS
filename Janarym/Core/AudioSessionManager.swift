@@ -4,6 +4,8 @@ import AVFoundation
 /// Camera + mic + TTS all coexist using playAndRecord + mixWithOthers.
 enum AudioSessionManager {
 
+    private static func print(_ items: Any...) {}
+
     static func configure() {
         let session = AVAudioSession.sharedInstance()
         do {

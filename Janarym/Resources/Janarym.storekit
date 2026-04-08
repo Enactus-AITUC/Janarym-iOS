@@ -52,12 +52,12 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Шексіз сұрақтар, барлық режимдер, OpenAI nova дауысы, SceneWatcher, жад жүйесі",
+              "description" : "Шексіз сұрақтар, барлық режимдер, Gemini Live дауыстық ассистенті және жоғары сапалы сурет талдауы",
               "displayName" : "Janarym VIP",
               "locale" : "kk_KZ"
             },
             {
-              "description" : "Безлимитные запросы, все режимы, голос OpenAI nova, SceneWatcher, система памяти",
+              "description" : "Безлимитные запросы, все режимы, голосовой ассистент Gemini Live и высокое качество анализа изображений",
               "displayName" : "Janarym VIP",
               "locale" : "ru_RU"
             }

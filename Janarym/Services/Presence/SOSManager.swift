@@ -35,11 +35,12 @@ final class SOSManager: NSObject {
         session.removeObserver(self, forKeyPath: "outputVolume")
     }
 
-    /// Whisper нәтижесін тексеру — дауыспен SOS
+    /// Дауыспен SOS — тек өте нақты фраза (кездейсоқ триггер болмасын)
     static func containsSOSCommand(_ text: String) -> Bool {
-        let n = text.lowercased()
-        let keywords = ["жәрдем", "жардем", "помогите", "помоги", "sos", "сос"]
-        return keywords.contains(where: { n.contains($0) })
+        let n = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        // Тек нақты қысқа фраза — бір сөз емес, толық команда
+        let exact = ["sos жіберу", "sos жибер", "sos отправить", "отправить sos"]
+        return exact.contains(where: { n == $0 || n.hasPrefix($0) })
     }
 
     // MARK: - KVO
@@ -52,10 +53,10 @@ final class SOSManager: NSObject {
 
         let now = Date()
         pressTimestamps.append(now)
-        // 2 секундтан ескі өшір
-        pressTimestamps = pressTimestamps.filter { now.timeIntervalSince($0) < 2.0 }
+        // 5 секундтан ескі өшір
+        pressTimestamps = pressTimestamps.filter { now.timeIntervalSince($0) < 5.0 }
 
-        if pressTimestamps.count >= 3 {
+        if pressTimestamps.count >= 10 {
             pressTimestamps.removeAll()
             DispatchQueue.main.async { [weak self] in
                 self?.onSOS?()

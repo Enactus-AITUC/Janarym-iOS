@@ -24,7 +24,7 @@ enum LanguageResolver {
     private static let cyrillicRange = UnicodeScalar("А")...UnicodeScalar("я")
 
     static func resolve(text: String, whisperLanguage: String? = nil) -> DetectedLanguage {
-        // 1. If Whisper returned a language code
+        // 1. If upstream voice input already provided a language code
         if let lang = whisperLanguage?.lowercased() {
             if lang.hasPrefix("kk") || lang.hasPrefix("kaz") { return .kazakh }
             if lang.hasPrefix("ru") || lang.hasPrefix("rus") { return .russian }

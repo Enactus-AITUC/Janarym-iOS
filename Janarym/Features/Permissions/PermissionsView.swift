@@ -9,7 +9,6 @@ struct PermissionsView: View {
     @State private var showTitle = false
     @State private var showRow1 = false
     @State private var showRow2 = false
-    @State private var showRow3 = false
     @State private var showButton = false
     @State private var ringScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.4
@@ -114,20 +113,11 @@ struct PermissionsView: View {
                         granted: manager.microphoneGranted,
                         show: showRow2
                     )
-
-                    AnimatedPermissionRow(
-                        icon: "waveform",
-                        title: "Сөйлеуді тану",
-                        subtitle: "Wake word анықтау үшін",
-                        granted: manager.speechGranted,
-                        show: showRow3
-                    )
                 }
                 .padding(.horizontal, 28)
                 .onAppear {
                     withAnimation(.easeOut(duration: 0.5).delay(0.3)) { showRow1 = true }
                     withAnimation(.easeOut(duration: 0.5).delay(0.45)) { showRow2 = true }
-                    withAnimation(.easeOut(duration: 0.5).delay(0.6)) { showRow3 = true }
                 }
 
                 Spacer().frame(height: 36)

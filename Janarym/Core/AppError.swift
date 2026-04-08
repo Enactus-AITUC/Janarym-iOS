@@ -4,10 +4,9 @@ enum AppError: LocalizedError {
     case permissionDenied(String)
     case cameraUnavailable
     case microphoneUnavailable
-    case speechRecognitionUnavailable
     case recordingFailed(String)
-    case transcriptionFailed(String)
-    case chatFailed(String)
+    case voiceInputFailed(String)
+    case assistantResponseFailed(String)
     case ttsFailed(String)
     case missingAPIKey
     case networkError(String)
@@ -20,14 +19,12 @@ enum AppError: LocalizedError {
             return "Камера қолжетімсіз"
         case .microphoneUnavailable:
             return "Микрофон қолжетімсіз"
-        case .speechRecognitionUnavailable:
-            return "Сөйлеуді тану қолжетімсіз"
         case .recordingFailed(let detail):
             return "Жазу қатесі: \(detail)"
-        case .transcriptionFailed(let detail):
-            return "Транскрипция қатесі: \(detail)"
-        case .chatFailed(let detail):
-            return "GPT қатесі: \(detail)"
+        case .voiceInputFailed(let detail):
+            return "Дауыс енгізу қатесі: \(detail)"
+        case .assistantResponseFailed(let detail):
+            return "Gemini жауабының қатесі: \(detail)"
         case .ttsFailed(let detail):
             return "TTS қатесі: \(detail)"
         case .missingAPIKey:

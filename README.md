@@ -13,7 +13,7 @@ cp Janarym/Resources/Secrets.example.plist Janarym/Resources/Secrets.plist
 ```
 
 Қажетті кілттер:
-- `OPENAI_API_KEY` — OpenAI API кілті (міндетті)
+- `GEMINI_API_KEY` — Gemini API кілті (міндетті)
 - `YANDEX_MAPKIT_API_KEY` — Yandex MapKit кілті (қазір қолданылмайды, болашақ үшін)
 
 ### 2. Xcode-да ашу
@@ -31,7 +31,7 @@ cp Janarym/Resources/Secrets.example.plist Janarym/Resources/Secrets.plist
 
 - **iOS Deployment Target:** 16.0
 - **Supported Orientations:** Portrait Only
-- **Info.plist:** Camera, Microphone, Speech Recognition usage descriptions қосылған
+- **Info.plist:** Camera және Microphone usage descriptions қосылған
 
 ### 4. Құрылғыда іске қосу
 
@@ -44,12 +44,12 @@ Janarym/
 ├── App/                          # App entry point, root view, lifecycle
 ├── Core/                         # Config, enums, utilities
 ├── Features/
-│   ├── Assistant/                # Coordinator, wake word, recorder, conversation
+│   ├── Assistant/                # Coordinator and Gemini voice flow
 │   ├── Camera/                   # Camera service and preview
 │   ├── Modes/                    # Modes bottom sheet
 │   └── Permissions/              # Permission manager and UI
 ├── Services/
-│   ├── OpenAI/                   # Whisper + GPT REST clients
+│   ├── Gemini/                   # Gemini Live WebSocket voice service
 │   └── Speech/                   # TTS service
 └── Resources/                    # Info.plist, Secrets
 ```
@@ -57,15 +57,13 @@ Janarym/
 ## Жұмыс принципі
 
 1. Қосымша ашылғанда камера фон ретінде көрсетіледі
-2. Wake word listener **«Жанарым»** сөзін тыңдайды
-3. Wake word анықталғанда — пайдаланушы командасы жазылады
-4. Аудио OpenAI Whisper API-ға жіберіледі (STT)
-5. Мәтін GPT-4o-mini-ге жіберіледі
-6. Жауап AVSpeechSynthesizer арқылы айтылады
-7. TTS аяқталғанда — қайтадан wake word тыңдайды
+2. Пайдаланушы Gemini батырмасын бір рет басып, жазуды бастайды
+3. Екінші рет басқанда аудио Gemini Live сессиясына жіберіледі
+4. Gemini аудио жауап берсе, ол тікелей ойнатылады
+5. Егер тек мәтін келсе, жауап AVSpeechSynthesizer арқылы айтылады
+6. Жауап аяқталғанда ассистент қайтадан күту режиміне өтеді
 
 ## iOS шектеулері
 
-- Wake word тек қосымша foreground-да болғанда жұмыс істейді (iOS шектеуі)
-- `kk-KZ` locale SFSpeechRecognizer-де кейбір құрылғыларда қолжетімсіз болуы мүмкін, бұл жағдайда `ru-RU` fallback қолданылады
+- Gemini Live үшін тұрақты интернет байланысы керек
 - Симуляторда камера мен микрофон толық жұмыс істемейді — нағыз құрылғыда тестілеңіз

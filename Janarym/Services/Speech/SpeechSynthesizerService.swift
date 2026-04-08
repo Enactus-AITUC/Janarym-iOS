@@ -6,132 +6,83 @@ final class SpeechSynthesizerService: NSObject, ObservableObject {
 
     var onFinished: (() -> Void)?
 
-    private var audioPlayer: AVAudioPlayer?
-    private var currentTask: Task<Void, Never>?
-
-    // AVSpeechSynthesizer тек API жетімсіз болса пайдаланылады
-    private let fallbackSynth = AVSpeechSynthesizer()
+    private let synth = AVSpeechSynthesizer()
 
     override init() {
         super.init()
-        fallbackSynth.delegate = self
+        synth.delegate = self
     }
 
     // MARK: - Public
 
     func speak(_ text: String, language: DetectedLanguage) {
         guard !text.isEmpty else { onFinished?(); return }
-        stop()
+        if synth.isSpeaking {
+            synth.stopSpeaking(at: .word)
+            isSpeaking = false
+        }
         isSpeaking = true
 
-        currentTask = Task { [weak self] in
-            // VIP → OpenAI TTS (nova), Free/Premium → тегін AVSpeechSynthesizer
-            let isVIP = await MainActor.run { SubscriptionManager.shared.tier.canUseOpenAITTS }
-            if isVIP {
-                await self?.speakViaOpenAI(text)
-            } else {
-                await self?.speakFallback(text)
-            }
-        }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = max(0.42, OnboardingStore.shared.profile.speechRate.avRate * 0.9)
+        utterance.pitchMultiplier = 0.76
+        utterance.volume = 1.0
+        utterance.preUtteranceDelay = 0.02
+        utterance.postUtteranceDelay = 0.04
+        utterance.voice = preferredVoice(for: language)
+
+        synth.speak(utterance)
     }
 
     func stop() {
-        currentTask?.cancel()
-        currentTask = nil
-        audioPlayer?.stop()
-        audioPlayer = nil
-        if fallbackSynth.isSpeaking { fallbackSynth.stopSpeaking(at: .immediate) }
+        if synth.isSpeaking { synth.stopSpeaking(at: .word) }
         isSpeaking = false
     }
 
-    // MARK: - OpenAI TTS (tts-1 + nova — қазақша/орысша автодетекция)
-
-    private func speakViaOpenAI(_ text: String) async {
-        guard !AppConfig.openAIAPIKey.isEmpty else {
-            await speakFallback(text)
-            return
+    private func preferredVoice(for language: DetectedLanguage) -> AVSpeechSynthesisVoice? {
+        let preferredLanguages: [String]
+        switch language {
+        case .kazakh:
+            preferredLanguages = ["kk-KZ", "ru-RU"]
+        case .russian:
+            preferredLanguages = ["ru-RU"]
+        default:
+            preferredLanguages = ["en-US"]
         }
 
-        // avRate: slow=0.42, normal=0.50, fast=0.58 → openai speed: *2.0
-        let speed = max(0.25, min(4.0, Double(OnboardingStore.shared.profile.speechRate.avRate) * 2.0))
-
-        let body: [String: Any] = [
-            "model": "tts-1",
-            "input": text,
-            "voice": "nova",        // Табиғи әйел дауысы — қазақша жақсы айтады
-            "response_format": "mp3",
-            "speed": speed
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        let maleHints = [
+            "aaron", "alex", "daniel", "grandpa", "rocko", "reed", "nicky",
+            "oleg", "yuri", "yuriy", "maxim", "damir", "nurlan", "sergey", "timur"
         ]
 
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            await speakFallback(text)
-            return
-        }
+        for languageCode in preferredLanguages {
+            let matching = voices.filter { $0.language == languageCode }
 
-        var request = OpenAIClient.request(
-            path: "/v1/audio/speech",
-            body: bodyData,
-            contentType: "application/json"
-        )
-        request.timeoutInterval = 15
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard !Task.isCancelled else { return }
-
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode),
-                  !data.isEmpty else {
-                await speakFallback(text)
-                return
+            if let siriMale = matching.first(where: { voice in
+                let haystack = "\(voice.name) \(voice.identifier)".lowercased()
+                return haystack.contains("siri") && maleHints.contains(where: haystack.contains)
+            }) {
+                return siriMale
             }
 
-            let tmpURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("janarym_tts.mp3")
-            try data.write(to: tmpURL)
-
-            await MainActor.run { [weak self] in
-                guard let self, !Task.isCancelled else { return }
-                do {
-                    self.audioPlayer = try AVAudioPlayer(contentsOf: tmpURL)
-                    self.audioPlayer?.delegate = self
-                    self.audioPlayer?.play()
-                } catch {
-                    self.isSpeaking = false
-                    self.onFinished?()
-                }
+            if let male = matching.first(where: { voice in
+                let haystack = "\(voice.name) \(voice.identifier)".lowercased()
+                return maleHints.contains(where: haystack.contains)
+            }) {
+                return male
             }
-        } catch {
-            guard !Task.isCancelled else { return }
-            await speakFallback(text)
+
+            if let premium = matching.max(by: { $0.quality.rawValue < $1.quality.rawValue }) {
+                return premium
+            }
         }
-    }
 
-    // MARK: - Fallback (API қолжетімсіз болса)
-
-    @MainActor
-    private func speakFallback(_ text: String) async {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = OnboardingStore.shared.profile.speechRate.avRate
-        utterance.voice = AVSpeechSynthesisVoice(language: "ru-RU")
-        isSpeaking = true
-        fallbackSynth.speak(utterance)
+        return AVSpeechSynthesisVoice(language: preferredLanguages.first ?? "en-US")
     }
 }
 
-// MARK: - AVAudioPlayerDelegate (OpenAI TTS аяқталғанда)
-
-extension SpeechSynthesizerService: AVAudioPlayerDelegate {
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully _: Bool) {
-        DispatchQueue.main.async {
-            self.isSpeaking = false
-            self.onFinished?()
-        }
-    }
-}
-
-// MARK: - AVSpeechSynthesizerDelegate (fallback аяқталғанда)
+// MARK: - AVSpeechSynthesizerDelegate
 
 extension SpeechSynthesizerService: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {

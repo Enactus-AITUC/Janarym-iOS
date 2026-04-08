@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 generate_xcodeproj.py)",
+      "Bash(open Janarym.xcodeproj)",
+      "Read(//private/tmp/**)",
+      "Bash(python3 -c \":*)",
+      "Bash(pip3 install:*)",
+      "Bash(xargs cat:*)",
+      "Bash(defaults read:*)",
+      "Bash(sw_vers)",
+      "Bash(xcodebuild -version)",
+      "Bash(defaults delete:*)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'generic/platform=iOS' -quiet build)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'generic/platform=iOS Simulator' build)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max' build)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build)",
+      "Bash(xcodebuild -project \"/Users/devloperenactus/Desktop/Janarym AI/Janarym.xcodeproj\" -list)",
+      "Bash(xcrun devicectl:*)",
+      "Bash(system_profiler SPUSBDataType)",
+      "Bash(sudo killall:*)",
+      "Bash(killall -9 CoreDeviceService)",
+      "Bash(killall -9 remotepairingd)",
+      "Bash(killall -9 remoted)",
+      "Bash(open \"/Users/devloperenactus/Desktop/Janarym AI/Janarym.xcodeproj\")",
+      "Bash(xcodebuild -project \"/Users/devloperenactus/Desktop/Janarym AI/Janarym.xcodeproj\" -scheme \"Janarym \\(Janarym project\\)\" -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build)",
+      "Bash(gh auth:*)",
+      "Bash(xcodebuild -list)",
+      "Bash(xcrun xctrace:*)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination \"id=00008120-0002752E2178C01E\" -configuration Debug build)",
+      "Bash(python3 inject_webrtc_spm.py)",
+      "Bash(grep -E \"^.*error:.*$\")",
+      "Bash(python3 -:*)",
+      "Bash(xcodebuild -project Janarym.xcodeproj -scheme Janarym -destination \"id=00008120-0002752E2178C01E\" -configuration Debug -resolvePackageDependencies)",
+      "Bash(xcodebuild -scheme Janarym -destination \"id=00008120-0002752E2178C01E\" -configuration Debug build)",
+      "Bash(xcodebuild -scheme Janarym -destination \"id=00008120-0002752E2178C01E\" -configuration Debug install)"
+    ]
+  }
+}

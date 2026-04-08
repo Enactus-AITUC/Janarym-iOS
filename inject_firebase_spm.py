@@ -94,11 +94,9 @@ content = content.replace(
 
 # 5. Add Firebase group to Services children
 content = content.replace(
-    "\t\t\t\t6BEC0FACBAFC4B7C9A6DF1C1 /* OpenAI */,\n"
     "\t\t\t\tFDC7D01BE5224383A9F07A92 /* Speech */,\n"
     "\t\t\t\tSUB006FF00000006FF000006 /* Subscription */,",
     (
-        f"\t\t\t\t6BEC0FACBAFC4B7C9A6DF1C1 /* OpenAI */,\n"
         f"\t\t\t\tFDC7D01BE5224383A9F07A92 /* Speech */,\n"
         f"\t\t\t\t{FIREBASE_GROUP} /* Firebase */,\n"
         f"\t\t\t\tSUB006FF00000006FF000006 /* Subscription */,"
