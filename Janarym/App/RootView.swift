@@ -124,13 +124,8 @@ struct RootView: View {
                             permissionsReady = true
                         }
                         coordinator.onMainViewAppear()
-                        // 1s кейін ғана camera overlay көрсету — жылдам старт-та flash жоқ
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            showCameraOverlay = true
-                        }
                     }
                     .onDisappear {
-                        showCameraOverlay = false
                         coordinator.onMainViewDisappear()
                     }
             }
@@ -512,6 +507,14 @@ struct JanarymMainView: View {
             }
         }
         } // GeometryReader
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                showCameraOverlay = true
+            }
+        }
+        .onDisappear {
+            showCameraOverlay = false
+        }
         .sheet(isPresented: $showMedCard) {
             MedCardScreen()
         }
