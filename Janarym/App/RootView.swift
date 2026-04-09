@@ -115,27 +115,14 @@ struct RootView: View {
                     }
                     .transition(.opacity)
             } else {
-                // 5. Негізгі экран — рөлге байланысты
-                let role = authService.currentUser?.role
-                if role == .member || role == nil {
-                    // Child: gesture-first screen
-                    ChildMainView(coordinator: coordinator)
-                        .transition(.opacity)
-                        .onAppear {
-                            if !permissionsReady { permissionsReady = true }
-                            coordinator.onMainViewAppear()
-                        }
-                        .onDisappear { coordinator.onMainViewDisappear() }
-                } else {
-                    // Admin / mentor / parent / developer: full UI
-                    JanarymMainView(coordinator: coordinator)
-                        .transition(.opacity)
-                        .onAppear {
-                            if !permissionsReady { permissionsReady = true }
-                            coordinator.onMainViewAppear()
-                        }
-                        .onDisappear { coordinator.onMainViewDisappear() }
-                }
+                // 5. Негізгі экран (барлық рөл)
+                JanarymMainView(coordinator: coordinator)
+                    .transition(.opacity)
+                    .onAppear {
+                        if !permissionsReady { permissionsReady = true }
+                        coordinator.onMainViewAppear()
+                    }
+                    .onDisappear { coordinator.onMainViewDisappear() }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

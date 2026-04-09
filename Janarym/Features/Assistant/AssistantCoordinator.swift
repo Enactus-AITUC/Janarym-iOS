@@ -162,11 +162,22 @@ final class AssistantCoordinator: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self, self.isMainViewVisible else { return }
             if !self.cameraService.isRunning { self.cameraService.start() }
+            self.setupAutoTorch()
         }
 
         guard permissionManager.allGranted else { return }
         realtimeService.connect()
         mode = .idle
+    }
+
+    private func setupAutoTorch() {
+        cameraService.autoTorchEnabled = true
+        cameraService.onTorchChanged = { [weak self] isOn in
+            guard let self else { return }
+            let lang: DetectedLanguage = OnboardingStore.shared.profile.language == .kazakh ? .kazakh : .russian
+            let phrase = isOn ? JanarymVoice.shared.torchOn() : JanarymVoice.shared.torchOff()
+            self.ttsService.speak(phrase, language: lang)
+        }
     }
 
     private func observeLanguageChanges() {
