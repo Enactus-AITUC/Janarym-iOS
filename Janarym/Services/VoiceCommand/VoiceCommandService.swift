@@ -11,6 +11,11 @@ enum RecognizedVoiceCommand: Equatable {
     case recordSymptom
     case whereIsParent
     case sos
+    case torchOn
+    case torchOff
+    case torchToggle
+    case askTime
+    case wakeWord
 }
 
 // MARK: - Service
@@ -36,6 +41,9 @@ final class VoiceCommandService: NSObject, ObservableObject {
     private var lastFiredAt:  Date = .distantPast
 
     private let commandMap: [(keywords: [String], cmd: RecognizedVoiceCommand)] = [
+        // Wake word (highest priority — check before others)
+        (["жанарым"],                                                   .wakeWord),
+        // Navigation
         (["баптаулар", "настройки"],                                   .settings),
         (["медкарта", "медициналық карта", "мед карта", "медкарту"],   .medCard),
         (["камера", "суретке"],                                        .camera),
@@ -43,6 +51,12 @@ final class VoiceCommandService: NSObject, ObservableObject {
         (["жағдайымды жазу", "симптом", "жазу"],                      .recordSymptom),
         (["анам қайда", "әкем қайда", "ата-анам", "родители где"],    .whereIsParent),
         (["sos", "сос", "жәрдем", "дабыл", "помощь", "тревога"],     .sos),
+        // Torch
+        (["фонарь қос", "фонарьды қос", "фонарь жақ", "включи фонарь"], .torchOn),
+        (["фонарь өшір", "фонарьды өшір", "выключи фонарь"],           .torchOff),
+        (["фонарь"],                                                    .torchToggle),
+        // Time
+        (["сағат нешеде", "сағат нешe", "неше сағат", "который час", "сколько времени"], .askTime),
     ]
 
     // MARK: - Init

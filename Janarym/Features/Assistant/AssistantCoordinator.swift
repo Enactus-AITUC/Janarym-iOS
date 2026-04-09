@@ -121,16 +121,10 @@ final class AssistantCoordinator: ObservableObject {
     }
 
     func triggerSOS() {
-        let profileLang = OnboardingStore.shared.profile.language
-        let language: DetectedLanguage = profileLang == .kazakh ? .kazakh : .russian
-        let msg = language == .kazakh
-            ? "SOS жіберілді. Ата-анаңызға хабар кетті."
-            : "SOS отправлен. Родитель получил уведомление."
+        let language: DetectedLanguage = OnboardingStore.shared.profile.language == .kazakh ? .kazakh : .russian
 
-        let feedback = UINotificationFeedbackGenerator()
-        feedback.notificationOccurred(.warning)
-
-        ttsService.speak(msg, language: language)
+        HapticService.shared.sos()
+        ttsService.speak(JanarymVoice.shared.sosSent(), language: language)
 
         guard let uid = AuthServiceHolder.shared.currentUID else { return }
         let loc = UserPresenceService.shared.lastLocation

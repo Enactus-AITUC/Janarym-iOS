@@ -350,6 +350,11 @@ final class CameraService: NSObject, ObservableObject {
         start()
     }
 
+    // MARK: - Torch change callback
+
+    /// Called on main thread when auto-torch switches on or off.
+    var onTorchChanged: ((Bool) -> Void)?
+
     // MARK: - Motion detection
 
     var onMotionDetected: (() -> Void)?
@@ -429,6 +434,7 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
                 if shouldBeOn != currentTorchState {
                     currentTorchState = shouldBeOn
                     applyTorchOnSessionQueue(on: shouldBeOn)
+                    DispatchQueue.main.async { self.onTorchChanged?(shouldBeOn) }
                 }
             }
         }

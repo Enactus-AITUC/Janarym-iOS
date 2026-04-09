@@ -322,19 +322,26 @@ struct ChildMainView: View {
         coordinator.cameraService.start()
         coordinator.realtimeService.connect()
 
+        // Auto-torch callback — speak personality phrase when torch switches
+        coordinator.cameraService.onTorchChanged = { [weak coordinator] isOn in
+            let lang: DetectedLanguage = OnboardingStore.shared.profile.language == .kazakh ? .kazakh : .russian
+            let phrase = isOn ? JanarymVoice.shared.torchOn() : JanarymVoice.shared.torchOff()
+            coordinator?.ttsService.speak(phrase, language: lang)
+        }
+        coordinator.cameraService.autoTorchEnabled = false  // child uses manual torch via voice
+
         voiceCommands.start()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
             coordinator.ttsService.speak(
-                kk
-                    ? "Камераны бастау үшін экранның жоғарғы бөлігін ұстап тұрыңыз"
-                    : "Удерживайте верхнюю часть экрана чтобы начать описание камеры",
-                language: kk ? .kazakh : .russian
+                JanarymVoice.shared.screenWelcome(),
+                language: .kazakh
             )
         }
     }
 
     private func onDisappear() {
+        coordinator.cameraService.onTorchChanged = nil
         voiceCommands.stop()
         cameraModel.stop()
     }
@@ -342,35 +349,75 @@ struct ChildMainView: View {
     // MARK: - Actions
 
     private func openMedCard() {
+        HapticService.shared.single()
         coordinator.ttsService.speak(
-            kk ? "Медициналық карта" : "Медкарта",
-            language: kk ? .kazakh : .russian
+            JanarymVoice.shared.medCardOpened(),
+            language: .kazakh
         )
         showMedCard = true
     }
 
     private func openSettings() {
+        HapticService.shared.single()
         coordinator.ttsService.speak(
-            kk ? "Баптаулар" : "Настройки",
-            language: kk ? .kazakh : .russian
+            JanarymVoice.shared.settingsOpened(),
+            language: .kazakh
         )
         showSettings = true
     }
 
     private func handleVoice(_ cmd: RecognizedVoiceCommand) {
+        let lang: DetectedLanguage = .kazakh
         switch cmd {
-        case .settings:      openSettings()
-        case .medCard:       openMedCard()
-        case .camera:        cameraModel.start()
-        case .back:          cameraModel.stop()
-        case .recordSymptom: openMedCard()
+        case .wakeWord:
+            HapticService.shared.single()
+            coordinator.ttsService.speak(JanarymVoice.shared.listening(), language: lang)
+
+        case .settings:
+            openSettings()
+
+        case .medCard:
+            openMedCard()
+
+        case .camera:
+            HapticService.shared.single()
+            cameraModel.start()
+
+        case .back:
+            HapticService.shared.single()
+            cameraModel.stop()
+
+        case .recordSymptom:
+            openMedCard()
+
         case .whereIsParent:
-            coordinator.ttsService.speak(
-                kk ? "Ата-ана орнын іздеп жатырмын..." : "Ищу местоположение родителей...",
-                language: kk ? .kazakh : .russian
-            )
+            HapticService.shared.double()
+            coordinator.ttsService.speak("Ата-ана орнын іздеп жатырмын...", language: lang)
+
         case .sos:
             coordinator.triggerSOS()
+
+        case .torchOn:
+            HapticService.shared.single()
+            coordinator.cameraService.setTorch(on: true)
+            coordinator.ttsService.speak(JanarymVoice.shared.torchOn(), language: lang)
+
+        case .torchOff:
+            HapticService.shared.single()
+            coordinator.cameraService.setTorch(on: false)
+            coordinator.ttsService.speak(JanarymVoice.shared.torchOff(), language: lang)
+
+        case .torchToggle:
+            HapticService.shared.single()
+            let currentlyOn = coordinator.cameraService.currentBrightness < 0.5
+            coordinator.cameraService.setTorch(on: !currentlyOn)
+            let phrase = !currentlyOn ? JanarymVoice.shared.torchOn() : JanarymVoice.shared.torchOff()
+            coordinator.ttsService.speak(phrase, language: lang)
+
+        case .askTime:
+            HapticService.shared.double()
+            let words = JanarymVoice.shared.timeInWords()
+            coordinator.ttsService.speak(JanarymVoice.shared.time(words), language: lang)
         }
     }
 }

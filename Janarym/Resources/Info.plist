@@ -16,6 +16,12 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Жақын маңдағы ата-ананы табу үшін қажет</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Ата-анаңызды BLE арқылы жалғастыру үшін қажет</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Дауыстық командалар үшін қажет</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Камера Janarym ассистентіне керек</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
