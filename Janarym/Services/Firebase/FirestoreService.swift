@@ -259,4 +259,104 @@ final class FirestoreService {
                            role: user.role, mentorId: user.mentorId, isDirectApproved: true)
         try await createUserProfile(approved)
     }
+
+    // MARK: - BLE Linking
+
+    /// Publish short discovery token so child can look up parent UID via BLE local name
+    func publishDiscoveryToken(uid: String) async {
+        let shortCode = String(uid.prefix(8)).uppercased()
+        try? await db.collection("discoveryTokens").document(shortCode).setData([
+            "uid":       uid,
+            "createdAt": Timestamp(date: Date())
+        ])
+    }
+
+    /// Child sends link request after tapping discovered parent device
+    func sendBLELinkRequest(childUID: String, parentShortCode: String) async {
+        do {
+            let snap = try await db.collection("discoveryTokens")
+                .document(parentShortCode)
+                .getDocument()
+            guard let data = snap.data(),
+                  let parentUID = data["uid"] as? String else { return }
+            let requestID = "\(childUID)_\(parentUID)"
+            try await db.collection("linkRequests").document(requestID).setData([
+                "childUid":  childUID,
+                "parentUid": parentUID,
+                "status":    "pending",
+                "createdAt": Timestamp(date: Date())
+            ])
+        } catch {}
+    }
+
+    /// Parent accepts link request — updates both user docs
+    func acceptLinkRequest(requestID: String, parentUID: String, childUID: String) async {
+        do {
+            try await db.collection("linkRequests")
+                .document(requestID)
+                .updateData(["status": "accepted"])
+            try await db.collection("users").document(parentUID)
+                .updateData(["children": FieldValue.arrayUnion([childUID])])
+            try await db.collection("users").document(childUID)
+                .setData(["parentUid": parentUID, "isLinked": true], merge: true)
+        } catch {}
+    }
+
+    /// Listen for incoming link requests targeting parentUID
+    func listenLinkRequests(parentUID: String,
+                            onChange: @escaping ([String: Any]) -> Void) -> ListenerRegistration {
+        db.collection("linkRequests")
+            .whereField("parentUid", isEqualTo: parentUID)
+            .whereField("status",    isEqualTo: "pending")
+            .addSnapshotListener { snap, _ in
+                snap?.documents.forEach { onChange($0.data()) }
+            }
+    }
+
+    // MARK: - Child location & battery (parent dashboard)
+
+    func updateChildLocation(uid: String, lat: Double, lng: Double) async {
+        try? await db.collection("users").document(uid)
+            .setData(["location": ["lat": lat, "lng": lng,
+                                   "updatedAt": Timestamp(date: Date())]], merge: true)
+    }
+
+    func updateBatteryLog(uid: String, pct: Int) async {
+        let entry: [String: Any] = ["pct": pct, "timestamp": Timestamp(date: Date())]
+        // arrayUnion adds entry; pruning to last 5 handled client-side after read
+        try? await db.collection("users").document(uid)
+            .setData(["batteryLog": FieldValue.arrayUnion([entry])], merge: true)
+    }
+
+    func saveMedCard(childUID: String, data: [String: Any]) async {
+        try? await db.collection("users").document(childUID)
+            .setData(["medCard": data], merge: true)
+    }
+
+    func fetchMedCard(childUID: String) async -> [String: Any]? {
+        guard let doc = try? await db.collection("users").document(childUID).getDocument(),
+              let d = doc.data() else { return nil }
+        return d["medCard"] as? [String: Any]
+    }
+
+    func saveSymptom(childUID: String, text: String, audioURL: String?, recordedBy: String) async {
+        let entry: [String: Any] = [
+            "text":       text,
+            "audioUrl":   audioURL as Any,
+            "timestamp":  Timestamp(date: Date()),
+            "recordedBy": recordedBy
+        ]
+        try? await db.collection("users").document(childUID)
+            .setData(["symptoms": FieldValue.arrayUnion([entry])], merge: true)
+    }
+
+    func saveAIPhotoRecord(childUID: String, timestamp: String, url: String, description: String) async {
+        let data: [String: Any] = [
+            "url":         url,
+            "description": description,
+            "createdAt":   Timestamp(date: Date())
+        ]
+        try? await db.collection("ai_photos").document(childUID)
+            .setData([timestamp: data], merge: true)
+    }
 }

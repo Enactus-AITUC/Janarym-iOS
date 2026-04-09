@@ -77,4 +77,64 @@ final class MedCardViewModel: ObservableObject {
         card.chronicConditions.remove(atOffsets: offsets)
         repo.save(card)
     }
+
+    // MARK: - SOS med card text (read aloud immediately on SOS trigger)
+
+    /// Returns plain-text summary of critical medical info for TTS during SOS.
+    /// "[Name], [age] жас. Қан тобы: [type]. Аллергия: [list]. Дәрігер: [phone]"
+    func sosReadoutText() -> String {
+        var parts: [String] = []
+        let name = card.fullName.isEmpty ? "Пайдаланушы" : card.fullName
+        let age  = computeAge()
+        parts.append(age > 0 ? "\(name), \(age) жас" : name)
+        if let bt = card.bloodType { parts.append("Қан тобы: \(bt.display)") }
+        if !card.allergies.isEmpty {
+            parts.append("Аллергия: \(card.allergies.joined(separator: ", "))")
+        }
+        if !card.doctorPhone.isEmpty {
+            parts.append("Дәрігер: \(card.doctorPhone)")
+        } else if !card.emergencyPhone.isEmpty {
+            parts.append("Байланыс: \(card.emergencyPhone)")
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    private func computeAge() -> Int {
+        // birthDate stored as "DD.MM.YYYY"
+        let parts = card.birthDate.split(separator: ".")
+        guard parts.count == 3,
+              let day  = Int(parts[0]),
+              let mo   = Int(parts[1]),
+              let year = Int(parts[2]) else { return 0 }
+        var comps = DateComponents()
+        comps.day = day; comps.month = mo; comps.year = year
+        guard let birth = Calendar.current.date(from: comps) else { return 0 }
+        return Calendar.current.dateComponents([.year], from: birth, to: Date()).year ?? 0
+    }
+
+    // MARK: - Firestore sync
+
+    func syncToFirestore(childUID: String) {
+        Task {
+            var data: [String: Any] = [
+                "name":            card.fullName,
+                "birthDate":       card.birthDate,
+                "bloodType":       card.bloodType?.rawValue as Any,
+                "allergies":       card.allergies,
+                "diagnoses":       card.chronicConditions,
+                "insuranceNumber": ""
+            ]
+            data["emergencyContact"] = [
+                "name":  card.emergencyContact,
+                "phone": card.emergencyPhone
+            ]
+            let meds = card.medications.map { m -> [String: Any] in
+                ["name":    m.name,
+                 "dose":    m.dosage,
+                 "schedule": m.scheduleString(kk: true)]
+            }
+            data["medications"] = meds
+            await FirestoreService.shared.saveMedCard(childUID: childUID, data: data)
+        }
+    }
 }

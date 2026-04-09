@@ -129,6 +129,11 @@ final class BLELinkingService: NSObject, ObservableObject {
             )
         }
     }
+
+    /// Publish own discovery token so children can find this parent via BLE local name
+    func publishToken(uid: String) {
+        Task { await FirestoreService.shared.publishDiscoveryToken(uid: uid) }
+    }
 }
 
 // MARK: - CBCentralManagerDelegate
@@ -181,46 +186,3 @@ extension BLELinkingService: CBPeripheralManagerDelegate {
     }
 }
 
-// MARK: - FirestoreService BLE extension (stub — add to FirestoreService.swift)
-
-extension FirestoreService {
-    func sendBLELinkRequest(childUID: String, parentShortCode: String) async {
-        // Look up parent UID from shortCode stored at discoveryTokens/{shortCode}
-        // Then create linkRequests/{requestId} document
-        do {
-            let tokenSnap = try await db.collection("discoveryTokens")
-                .document(parentShortCode)
-                .getDocument()
-            guard let parentUID = tokenSnap.data()?["uid"] as? String else { return }
-
-            let requestID = "\(childUID)_\(parentUID)"
-            try await db.collection("linkRequests").document(requestID).setData([
-                "childUid":  childUID,
-                "parentUid": parentUID,
-                "status":    "pending",
-                "createdAt": Date().timeIntervalSince1970
-            ])
-        } catch {}
-    }
-
-    func publishDiscoveryToken(uid: String) async {
-        let shortCode = String(uid.prefix(8)).uppercased()
-        do {
-            try await db.collection("discoveryTokens").document(shortCode).setData([
-                "uid":       uid,
-                "createdAt": Date().timeIntervalSince1970
-            ])
-        } catch {}
-    }
-
-    func acceptLinkRequest(requestID: String, parentUID: String, childUID: String) async {
-        do {
-            try await db.collection("linkRequests").document(requestID)
-                .updateData(["status": "accepted"])
-            try await db.collection("users").document(parentUID)
-                .updateData(["children": [childUID]])   // merge later with arrayUnion via batch
-            try await db.collection("users").document(childUID)
-                .setData(["parentUid": parentUID, "isLinked": true], merge: true)
-        } catch {}
-    }
-}

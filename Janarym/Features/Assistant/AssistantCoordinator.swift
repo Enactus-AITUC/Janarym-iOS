@@ -124,7 +124,11 @@ final class AssistantCoordinator: ObservableObject {
         let language: DetectedLanguage = OnboardingStore.shared.profile.language == .kazakh ? .kazakh : .russian
 
         HapticService.shared.sos()
-        ttsService.speak(JanarymVoice.shared.sosSent(), language: language)
+        // Read SOS phrase + critical med card info immediately
+        let sosPhrase  = JanarymVoice.shared.sosSent()
+        let medReadout = MedCardViewModel.shared.sosReadoutText()
+        let fullText   = medReadout.isEmpty ? sosPhrase : "\(sosPhrase) \(medReadout)"
+        ttsService.speak(fullText, language: language)
 
         guard let uid = AuthServiceHolder.shared.currentUID else { return }
         let loc = UserPresenceService.shared.lastLocation

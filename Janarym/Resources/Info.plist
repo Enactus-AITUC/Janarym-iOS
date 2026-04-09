@@ -30,6 +30,25 @@
 	<string>Микрофон Janarym ассистентіне керек</string>
 	<key>NSMotionUsageDescription</key>
 	<string>VR режимде гироскоп Janarym-ға қажет</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Фондық орын жаңартулары үшін қажет</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Аватар таңдау үшін қажет</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>audio</string>
+		<string>location</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.janarym.battery.update</string>
+		<string>com.janarym.location.update</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>
