@@ -24,7 +24,7 @@ final class SpeechSynthesizerService: NSObject, ObservableObject {
         isSpeaking = true
 
         let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = max(0.42, OnboardingStore.shared.profile.speechRate.avRate * 0.9)
+        utterance.rate = OnboardingStore.shared.profile.speechRate.avPreviewRate
         utterance.pitchMultiplier = 0.76
         utterance.volume = 1.0
         utterance.preUtteranceDelay = 0.02

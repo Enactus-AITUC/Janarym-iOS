@@ -25,6 +25,7 @@ final class OpenAIRealtimeService: NSObject, ObservableObject {
     private var player:   AVAudioPlayer?
     private var currentRecordingURL: URL?
     private var capturedFrameAtPTTStart: Data?
+    private var cameraDescribeTask: Task<Void, Never>?
 
     private var currentLanguage: UserProfile.Language { OnboardingStore.shared.currentLanguage }
     private var currentPrompt:   String               { OnboardingStore.shared.assistantPrompt(for: activeMode) }
@@ -61,6 +62,51 @@ final class OpenAIRealtimeService: NSObject, ObservableObject {
         publishTranscription("")
         publishResponseText("")
         if shouldReconnect { connect() }
+    }
+
+    // MARK: - Camera-only description (no audio input)
+
+    /// Captures GPT description of current camera frame and plays it via TTS.
+    /// Called in a loop by ChildMainView while user holds the camera zone.
+    func describeCamera(frameJPEG: Data?) async {
+        guard isConnected, state == .idle else { return }
+        guard useProxy || !AppConfig.openAIAPIKey.isEmpty else { return }
+        updateConnectionState(.processing, connected: true)
+
+        do {
+            let kk = OnboardingStore.shared.profile.language == .kazakh
+            let focusInstruction = OnboardingStore.shared.profile.focusMode.promptInstruction(kk: kk)
+            let promptBase = kk
+                ? "Алдыңда не тұр? Нашар көретін адамға арналған қысқа, нақты сипаттама бер. Тек 1–2 сөйлем.\(focusInstruction)"
+                : "Что находится перед тобой? Дай краткое, конкретное описание для слабовидящего человека. Только 1–2 предложения.\(focusInstruction)"
+
+            let apiKey = AppConfig.openAIAPIKey
+            let responseText = try await getChatResponse(
+                transcript: promptBase,
+                frameJPEG: frameJPEG,
+                apiKey: apiKey
+            )
+            publishResponseText(responseText)
+
+            let audioBase64 = try? await synthesiseSpeech(text: responseText, apiKey: apiKey)
+            if let audioBase64 {
+                try await playReturnedAudio(base64: audioBase64)
+            } else {
+                updateConnectionState(.idle, connected: true)
+            }
+        } catch {
+            updateConnectionState(.idle, connected: true)
+        }
+    }
+
+    /// Cancel any in-progress camera description and reset to idle
+    func stopDescribing() {
+        cameraDescribeTask?.cancel()
+        cameraDescribeTask = nil
+        stopPlayback()
+        if state == .processing || state == .speaking {
+            updateConnectionState(.idle, connected: true)
+        }
     }
 
     func startPTT(frameJPEG: Data? = nil) {
