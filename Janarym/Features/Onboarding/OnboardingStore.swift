@@ -13,9 +13,11 @@ struct UserProfile: Codable {
     var city:           String         = ""
     var purpose:        Purpose        = .all
     var hobbies:        String         = ""
-    var responseLength: ResponseLength = .short
-    var speechRate:     SpeechRate     = .normal
-    var focusMode:      FocusMode      = .all
+    var responseLength:         ResponseLength = .short
+    var speechRate:             SpeechRate     = .normal
+    var focusMode:              FocusMode      = .all
+    /// AVSpeechSynthesisVoice identifier — nil means auto-select best available
+    var selectedVoiceIdentifier: String?       = nil
 
     // MARK: Enums
 

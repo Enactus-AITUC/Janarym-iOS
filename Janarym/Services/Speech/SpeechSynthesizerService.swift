@@ -29,7 +29,7 @@ final class SpeechSynthesizerService: NSObject, ObservableObject {
         utterance.volume = 1.0
         utterance.preUtteranceDelay = 0.02
         utterance.postUtteranceDelay = 0.04
-        utterance.voice = preferredVoice(for: language)
+        utterance.voice = selectedVoice(for: language)
 
         synth.speak(utterance)
     }
@@ -37,6 +37,36 @@ final class SpeechSynthesizerService: NSObject, ObservableObject {
     func stop() {
         if synth.isSpeaking { synth.stopSpeaking(at: .word) }
         isSpeaking = false
+    }
+
+    // MARK: - Available voices (for Settings UI)
+
+    static func availableVoices(for language: DetectedLanguage) -> [AVSpeechSynthesisVoice] {
+        let codes: [String]
+        switch language {
+        case .kazakh:  codes = ["kk-KZ"]
+        case .russian: codes = ["ru-RU"]
+        default:       codes = ["en-US"]
+        }
+        return AVSpeechSynthesisVoice.speechVoices()
+            .filter { v in codes.contains(v.language) }
+            .sorted { $0.quality.rawValue > $1.quality.rawValue }
+    }
+
+    static var kazakhVoices: [AVSpeechSynthesisVoice] {
+        availableVoices(for: .kazakh)
+    }
+
+    // MARK: - Voice selection (user pick → identifier stored in profile)
+
+    private func selectedVoice(for language: DetectedLanguage) -> AVSpeechSynthesisVoice? {
+        // If user has pinned a specific voice, try that first
+        if let identifier = OnboardingStore.shared.profile.selectedVoiceIdentifier,
+           !identifier.isEmpty,
+           let pinned = AVSpeechSynthesisVoice(identifier: identifier) {
+            return pinned
+        }
+        return preferredVoice(for: language)
     }
 
     private func preferredVoice(for language: DetectedLanguage) -> AVSpeechSynthesisVoice? {

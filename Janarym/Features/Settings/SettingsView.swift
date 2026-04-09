@@ -6,11 +6,18 @@ import SwiftUI
 private final class SpeechPreview: ObservableObject {
     private let synth = AVSpeechSynthesizer()
 
-    func speak(_ text: String, language: UserProfile.Language, avRate: Float) {
+    func speak(_ text: String, language: UserProfile.Language, avRate: Float,
+               voiceIdentifier: String? = nil) {
         synth.stopSpeaking(at: .immediate)
         let langCode = language == .kazakh ? "kk-KZ" : "ru-RU"
         let utt = AVSpeechUtterance(string: text)
-        utt.voice = AVSpeechSynthesisVoice(language: langCode) ?? AVSpeechSynthesisVoice(language: "ru-RU")
+        if let id = voiceIdentifier, !id.isEmpty,
+           let v = AVSpeechSynthesisVoice(identifier: id) {
+            utt.voice = v
+        } else {
+            utt.voice = AVSpeechSynthesisVoice(language: langCode)
+                     ?? AVSpeechSynthesisVoice(language: "ru-RU")
+        }
         utt.rate = avRate
         synth.speak(utt)
     }
@@ -30,6 +37,7 @@ struct SettingsView: View {
         NavigationView {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 24) {
+                    voicePickerSection
                     focusModeSection
                     speechRateSection
                     responseLengthSection
@@ -261,6 +269,139 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(formality.display(lang)) — \(formality.formalityLabel(kk: kk))")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    // MARK: - Voice picker
+
+    private var kazakhVoices: [AVSpeechSynthesisVoice] {
+        // All kk-KZ voices on the device, sorted best quality first
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("kk") }
+            .sorted { $0.quality.rawValue > $1.quality.rawValue }
+    }
+
+    private var voicePickerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader(kk ? "Қазақша дауыс" : "Казахский голос")
+
+            if kazakhVoices.isEmpty {
+                // No kk-KZ voices installed — show install hint
+                HStack(spacing: 14) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(kk ? "Қазақша дауыс табылмады"
+                                : "Казахский голос не найден")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text(kk
+                            ? "Баптаулар → Жалпы → Тіл мен аймақ → iPhone тілі → Қазақша → Siri дауысы"
+                            : "Настройки → Основные → Язык → Казахский → Голос Siri")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.orange.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1))
+            } else {
+                ForEach(kazakhVoices, id: \.identifier) { voice in
+                    voiceRow(voice)
+                }
+
+                // Auto-select option
+                let isAuto = store.profile.selectedVoiceIdentifier == nil
+                    || store.profile.selectedVoiceIdentifier?.isEmpty == true
+                Button {
+                    var p = store.profile
+                    p.selectedVoiceIdentifier = nil
+                    store.updateProfile(p)
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 20))
+                            .foregroundStyle(isAuto ? .black : Color.green)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(kk ? "Автоматты" : "Автоматически")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(isAuto ? .black : .white)
+                            Text(kk ? "Ең жақсы қолжетімді дауыс" : "Лучший доступный голос")
+                                .font(.system(size: 12))
+                                .foregroundStyle(isAuto ? .black.opacity(0.6) : .white.opacity(0.45))
+                        }
+                        Spacer()
+                        if isAuto {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.black)
+                        }
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, minHeight: 64)
+                    .background(RoundedRectangle(cornerRadius: 14)
+                        .fill(isAuto ? Color.green : Color.white.opacity(0.07)))
+                    .overlay(RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(isAuto ? Color.clear : Color.white.opacity(0.1), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func voiceRow(_ voice: AVSpeechSynthesisVoice) -> some View {
+        let isSelected = store.profile.selectedVoiceIdentifier == voice.identifier
+        let qualityLabel: String = {
+            switch voice.quality {
+            case .enhanced: return kk ? "Жоғары сапа" : "Высокое"
+            case .premium:  return kk ? "Премиум" : "Премиум"
+            default:        return kk ? "Стандарт" : "Стандарт"
+            }
+        }()
+        return Button {
+            var p = store.profile
+            p.selectedVoiceIdentifier = voice.identifier
+            store.updateProfile(p)
+            // Preview with selected voice
+            preview.speak(
+                kk ? "Сәлем! Мен Жанарым." : "Привет! Я Жанарым.",
+                language: store.profile.language,
+                avRate: store.profile.speechRate.avPreviewRate,
+                voiceIdentifier: voice.identifier
+            )
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.wave.2.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(isSelected ? .black : Color.green)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(voice.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isSelected ? .black : .white)
+                    Text(qualityLabel)
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? .black.opacity(0.6) : .white.opacity(0.45))
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.black)
+                }
+            }
+            .padding(.horizontal, 18).padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(RoundedRectangle(cornerRadius: 14)
+                .fill(isSelected ? Color.green : Color.white.opacity(0.07)))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(voice.name)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 

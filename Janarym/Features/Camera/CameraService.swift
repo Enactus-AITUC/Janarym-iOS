@@ -426,11 +426,20 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         previousPixelBuffer = pixelBuffer
 
         // Auto-torch: ~2 секунд сайын (30fps × 60 frame = 2s)
+        // Hysteresis: ON threshold = 0.09, OFF threshold = 0.35
+        // Prevents torch from flickering when it illuminates the scene.
         if autoTorchEnabled {
             torchFrameCounter += 1
             if torchFrameCounter % 60 == 0 {
                 let brightness = frameBrightness(pixelBuffer)
-                let shouldBeOn = brightness < 0.12
+                let shouldBeOn: Bool
+                if currentTorchState {
+                    // Currently ON → only turn OFF when scene is bright enough
+                    shouldBeOn = brightness < 0.35
+                } else {
+                    // Currently OFF → only turn ON when scene is genuinely dark
+                    shouldBeOn = brightness < 0.09
+                }
                 if shouldBeOn != currentTorchState {
                     currentTorchState = shouldBeOn
                     applyTorchOnSessionQueue(on: shouldBeOn)
