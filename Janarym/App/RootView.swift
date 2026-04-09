@@ -289,6 +289,7 @@ struct JanarymMainView: View {
     @State private var showTierInfo = false
     @State private var showCameraOverlay = false  // 1s delay — жылдам старт flash жоқ
     @State private var showMedCard = false
+    @State private var showSettings = false
     @ObservedObject private var sub = SubscriptionManager.shared
     @ObservedObject private var onboarding = OnboardingStore.shared
     @EnvironmentObject private var authService: AuthService
@@ -448,6 +449,19 @@ struct JanarymMainView: View {
                 // GeometryReader geo пайдаланамыз — landscape-да overflow болмасын
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 10) {
+                        // Settings button
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(width: 44, height: 44)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(kk ? "Баптаулар" : "Настройки")
+
                         // MedCard button — PTT үстінде
                         Button { showMedCard = true } label: {
                             Image(systemName: "cross.fill")
@@ -514,6 +528,9 @@ struct JanarymMainView: View {
         }
         .onDisappear {
             showCameraOverlay = false
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .sheet(isPresented: $showMedCard) {
             MedCardScreen()

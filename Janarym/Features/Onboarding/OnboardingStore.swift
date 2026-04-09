@@ -15,6 +15,7 @@ struct UserProfile: Codable {
     var hobbies:        String         = ""
     var responseLength: ResponseLength = .short
     var speechRate:     SpeechRate     = .normal
+    var focusMode:      FocusMode      = .all
 
     // MARK: Enums
 
@@ -50,6 +51,14 @@ struct UserProfile: Codable {
             case (.informal, .kazakh):  return "Сен"
             case (.formal,   .russian): return "Вы"
             case (.informal, .russian): return "ты"
+            }
+        }
+        func formalityLabel(kk: Bool) -> String {
+            switch (self, kk) {
+            case (.formal,   true):  return "ресми"
+            case (.formal,   false): return "официально"
+            case (.informal, true):  return "жайлы"
+            case (.informal, false): return "неформально"
             }
         }
     }
@@ -113,16 +122,23 @@ struct UserProfile: Codable {
             switch lang {
             case .kazakh:
                 switch self {
-                case .short:  return "Қысқа (1–2 сөйлем)"
+                case .short:  return "Қысқа"
                 case .medium: return "Орташа"
                 case .long:   return "Толық"
                 }
             case .russian:
                 switch self {
-                case .short:  return "Кратко (1–2 предл.)"
+                case .short:  return "Кратко"
                 case .medium: return "Умеренно"
                 case .long:   return "Подробно"
                 }
+            }
+        }
+        var icon: String {
+            switch self {
+            case .short:  return "1.circle.fill"
+            case .medium: return "2.circle.fill"
+            case .long:   return "3.circle.fill"
             }
         }
     }
@@ -145,11 +161,98 @@ struct UserProfile: Codable {
                 }
             }
         }
+        /// OpenAI TTS speed (1.0 = normal)
         var avRate: Float {
             switch self {
             case .slow:   return 0.9
             case .normal: return 1.1
             case .fast:   return 1.3
+            }
+        }
+        /// AVSpeechSynthesizer rate for instant UI preview (0.0–1.0, default 0.5)
+        var avPreviewRate: Float {
+            switch self {
+            case .slow:   return 0.38
+            case .normal: return 0.50
+            case .fast:   return 0.62
+            }
+        }
+        var icon: String {
+            switch self {
+            case .slow:   return "tortoise.fill"
+            case .normal: return "equal.circle.fill"
+            case .fast:   return "hare.fill"
+            }
+        }
+    }
+
+    enum FocusMode: String, Codable, CaseIterable, Equatable {
+        case all, people, text, objects
+
+        func displayName(kk: Bool) -> String {
+            switch (self, kk) {
+            case (.all,     true):  return "Барлығы"
+            case (.all,     false): return "Всё"
+            case (.people,  true):  return "Адамдар"
+            case (.people,  false): return "Люди"
+            case (.text,    true):  return "Мәтін"
+            case (.text,    false): return "Текст"
+            case (.objects, true):  return "Заттар"
+            case (.objects, false): return "Предметы"
+            }
+        }
+
+        func descriptionText(kk: Bool) -> String {
+            switch (self, kk) {
+            case (.all,     true):  return "Камерадан барлығын сипаттайды"
+            case (.all,     false): return "Описывает всё видимое"
+            case (.people,  true):  return "Тек адамдар мен олардың орны"
+            case (.people,  false): return "Только люди и их положение"
+            case (.text,    true):  return "Тек мәтінді оқиды"
+            case (.text,    false): return "Только читает текст"
+            case (.objects, true):  return "Тек заттар мен кедергілер"
+            case (.objects, false): return "Только предметы и препятствия"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .all:     return "viewfinder"
+            case .people:  return "person.2.fill"
+            case .text:    return "doc.text.fill"
+            case .objects: return "cube.fill"
+            }
+        }
+
+        func announcementText(kk: Bool) -> String {
+            switch (self, kk) {
+            case (.all,     true):  return "Барлығы режимі таңдалды"
+            case (.all,     false): return "Выбран режим — всё"
+            case (.people,  true):  return "Адамдар режимі таңдалды. Камера тек адамдарды сипаттайды"
+            case (.people,  false): return "Режим людей выбран. Камера описывает только людей"
+            case (.text,    true):  return "Мәтін режимі таңдалды. Камера тек мәтінді оқиды"
+            case (.text,    false): return "Режим текста выбран. Камера читает только текст"
+            case (.objects, true):  return "Заттар режимі таңдалды. Камера тек заттарды сипаттайды"
+            case (.objects, false): return "Режим предметов выбран. Камера описывает только предметы"
+            }
+        }
+
+        func promptInstruction(kk: Bool) -> String {
+            switch (self, kk) {
+            case (.all, _):
+                return ""
+            case (.people, true):
+                return "\nКамера суретінде ТЕК адамдарды сипатта: саны, орналасуы (сол жақта / оң жақта / алдыңда), қозғалысы. Заттарды, мәтінді, фонды сипаттама."
+            case (.people, false):
+                return "\nНа снимке с камеры описывай ТОЛЬКО людей: количество, расположение (слева / справа / впереди), движение. Предметы, текст, фон — не описывай."
+            case (.text, true):
+                return "\nКамера суретіндегі БАРЛЫҚ мәтінді дәл, толық оқы. Заттарды, адамдарды, фонды сипаттама — тек мәтін."
+            case (.text, false):
+                return "\nЧитай ВЕСЬ текст с камеры дословно и полностью. Предметы, людей, фон — не описывай. Только текст."
+            case (.objects, true):
+                return "\nКамера суретіндегі ТЕК заттар мен кедергілерді сипатта: не деген зат, қай жақта (сол / оң / алда), жолды бөгей ме. Адамдарды, мәтінді сипаттама."
+            case (.objects, false):
+                return "\nОписывай на снимке ТОЛЬКО предметы и препятствия: что это, где (слева / справа / впереди), блокирует ли путь. Людей и текст не описывай."
             }
         }
     }
@@ -188,6 +291,11 @@ final class OnboardingStore: ObservableObject {
         var updated = profile
         updated.language = language
         profile = updated
+        persistProfile()
+    }
+
+    func updateProfile(_ newProfile: UserProfile) {
+        profile = newProfile
         persistProfile()
     }
 
@@ -244,9 +352,11 @@ final class OnboardingStore: ObservableObject {
                             : "Основной ответ всё равно начинай с 2 понятных предложений, и только потом при необходимости расширяй."
         }
 
-        let visionRule = kk
+        let focusModeInstruction = p.focusMode.promptInstruction(kk: kk)
+        let visionRule = (kk
             ? "Әрбір сұрақпен бірге пайдаланушының камерасынан түсірілген сурет жіберілуі мүмкін. Сен сол суретті КӨРЕ АЛАСЫҢ. 'Алдымда не тұр?', 'бұл не?', 'қарашы' деген сұрақтарға суретті талдап нақты жауап бер. Сурет анық болмаса, оны тура айт."
-            : "К каждому вопросу может прилагаться снимок с камеры пользователя. Ты МОЖЕШЬ ВИДЕТЬ этот снимок. На вопросы 'что передо мной?', 'что это?', 'посмотри' — анализируй снимок и отвечай конкретно. Если кадр неясный, скажи об этом прямо."
+            : "К каждому вопросу может прилагаться снимок с камеры пользователя. Ты МОЖЕШЬ ВИДЕТЬ этот снимок. На вопросы 'что передо мной?', 'что это?', 'посмотри' — анализируй снимок и отвечай конкретно. Если кадр неясный, скажи об этом прямо.")
+            + focusModeInstruction
 
         let base = kk ? """
 Сен — Жанарым, нашар көретін немесе мүлде көрмейтін адамдарға арналған дауыстық AI-ассистентсің.\(nameClause)
